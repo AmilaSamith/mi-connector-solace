@@ -25,5 +25,4 @@
         <dependency component="transactional" />
         <description>WSO2 solace connector library</description>
     </component>
-    <icon>icon/icon-small.gif</icon>
 </connector>

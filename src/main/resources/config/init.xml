@@ -21,6 +21,7 @@
     <parameter name="host" description="Host URL of the Solace broker (e.g., tcp://localhost:55555)."/>
     <parameter name="vpnName" description="Message VPN name (default: 'default')."/>
     <parameter name="username" description="Client username for authentication."/>
+    <parameter name="apiProvidedUsername" description="API-provided username sent to the broker for CLIENT_CERTIFICATE / OAUTH2 schemes (used when the VPN allows api-provided usernames)."/>
     <parameter name="password" description="Client password for authentication."/>
     <parameter name="clientName" description="Client name for the session."/>
     <parameter name="connectionTimeout" description="Connection timeout in milliseconds."/>

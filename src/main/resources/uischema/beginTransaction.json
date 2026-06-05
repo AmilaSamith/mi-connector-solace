@@ -15,8 +15,8 @@
               "name": "configRef",
               "displayName": "Solace Connection",
               "inputType": "connection",
-              "allowedConnectionTypes": ["SOLACE"],
-              "required": true,
+              "allowedConnectionTypes": ["solace"],
+              "required": "true",
               "helpTip": "Select an existing Solace connection."
             }
           },
@@ -27,7 +27,7 @@
               "displayName": "Transaction Timeout (ms)",
               "inputType": "string",
               "defaultValue": "60000",
-              "required": false,
+              "required": "false",
               "helpTip": "Auto-rollback after this many ms if commit/rollback isn't reached. Prevents leaks from forgotten or faulted sequences."
             }
           }

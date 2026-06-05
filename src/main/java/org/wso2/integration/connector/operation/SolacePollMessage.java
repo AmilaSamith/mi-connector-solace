@@ -217,8 +217,7 @@ public class SolacePollMessage extends AbstractConnectorOperation {
             String body = new String(bytes, StandardCharsets.UTF_8);
             payloadJson = looksLikeJson(body) ? body : JSONObject.quote(body);
         }
-        log.info("response: "+ payloadJson + " responseVariable: " + responseVariable 
-            + " overwriteBody: " + overwriteBody + "Attributes: " + attributes.toString());
+
         handleConnectorResponse(messageContext, responseVariable, overwriteBody, payloadJson,
                 null, attributes);
     }

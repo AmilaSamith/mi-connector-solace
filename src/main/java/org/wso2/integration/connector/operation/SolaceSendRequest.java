@@ -192,8 +192,7 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
 
             String body = new String(responseBytes, StandardCharsets.UTF_8);
             String payloadJson = looksLikeJson(body) ? body : JSONObject.quote(body);
-            log.info("response: "+ payloadJson + " responseVariable: " + responseVariable 
-            + " overwriteBody: " + overwriteBody + "Attributes: " + attributes.toString());
+
             handleConnectorResponse(messageContext, responseVariable, overwriteBody,
                     payloadJson, null, attributes);
 

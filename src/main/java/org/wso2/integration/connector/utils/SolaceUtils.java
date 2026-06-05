@@ -314,7 +314,6 @@ public final class SolaceUtils {
         }
 
         Map<String, Object> userProps = extractUserProperties(message);
-        log.info("UserPropeties:" + userProps.toString());
         if (userProps != null && !userProps.isEmpty() && !sink.containsKey("userProperties")) {
             sink.put("userProperties", userProps);
         }

@@ -8,16 +8,55 @@
       "type": "object",
       "description": "The main response payload from the publishMessage operation.",
       "properties": {
-        "messageId": {
-          "description": "The unique identifier for the published message."
+        "destination": {
+          "type": "string",
+          "description": "The name of the topic or queue the message was published to."
         },
-        "status": {
-          "description": "Status of the publish operation (e.g., SUCCESS, ERROR)."
+        "destinationType": {
+          "type": "string",
+          "description": "The type of destination the message was published to (e.g., TOPIC, QUEUE)."
         },
-        "details": {
-          "description": "Additional details about the publish operation."
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the publish (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "messageType": {
+          "type": "string",
+          "description": "The message type used for the publish (e.g., TEXT, BYTES, XML)."
+        },
+        "ackStatus": {
+          "type": "string",
+          "description": "The broker acknowledgement status for the publish (e.g., ACK, NACK, TIMEOUT)."
+        },
+        "ackReceived": {
+          "type": "boolean",
+          "description": "Whether a broker acknowledgement was received for the published message."
+        },
+        "correlationKey": {
+          "type": ["string", "null"],
+          "description": "The correlation key associated with the publish, or null if none was set."
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error detail when the publish was not acknowledged, or null on success."
+        },
+        "publishedAt": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the message was published."
         }
-      }
+      },
+      "required": [
+        "destination",
+        "destinationType",
+        "deliveryMode",
+        "messageType",
+        "ackStatus",
+        "ackReceived",
+        "correlationKey",
+        "error",
+        "publishedAt"
+      ],
+      "additionalProperties": false
     }
   },
   "required": ["payload"],

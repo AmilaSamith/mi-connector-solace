@@ -127,7 +127,7 @@
                 <version>3.7.1</version>
                 <executions>
                     <execution>
-                        <id>email-library</id>
+                        <id>assemble-connector</id>
                         <phase>compile</phase>
                         <goals>
                             <goal>single</goal>

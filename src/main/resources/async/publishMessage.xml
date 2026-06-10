@@ -38,7 +38,7 @@
     <parameter name="ackTimeout" description="Maximum time in milliseconds to wait for the broker ACK when waitForAck=true. Default: 10000."/>
     <parameter name="continueOnAckFailure" description="When true, a NACK or ACK timeout does not throw. Inspect 'solace.ack.status' (ACK|NACK|TIMEOUT) to handle the outcome. Default: false."/>
     <parameter name="responseVariable" description="The name of the variable to which the output should be stored."/>
-	<parameter name="overwriteBody" description="Replace the Message Body in Message Context with the response of the operation."/>
+    <parameter name="overwriteBody" description="Replace the Message Body in Message Context with the response of the operation."/>
     <sequence>
         <class name="org.wso2.integration.connector.operation.SolacePublishMessage"/>
     </sequence>

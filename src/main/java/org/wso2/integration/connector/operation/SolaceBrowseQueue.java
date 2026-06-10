@@ -114,7 +114,7 @@ public class SolaceBrowseQueue extends AbstractConnectorOperation {
             Map<String, Object> attributes = new HashMap<>();
             attributes.put(SolaceConstants.RESULT_DESTINATION, queueName);
             attributes.put(SolaceConstants.RESULT_MESSAGE_COUNT, browsed.size());
-            
+
             handleConnectorResponse(messageContext, responseVariable, overwriteBody,
                     messagesJson.toString(), null, attributes);
 

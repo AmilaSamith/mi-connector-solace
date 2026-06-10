@@ -40,19 +40,35 @@ public final class SolaceTransactionRegistry {
     private static final Log log = LogFactory.getLog(SolaceTransactionRegistry.class);
 
     private static final Map<String, Entry> entries = new ConcurrentHashMap<>();
-    private static final ScheduledExecutorService watchdog =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "solace-tx-watchdog");
-                t.setDaemon(true);
-                return t;
-            });
+    private static ScheduledExecutorService watchdog = newWatchdog();
 
     private SolaceTransactionRegistry() {}
+
+    private static ScheduledExecutorService newWatchdog() {
+        return Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "solace-tx-watchdog");
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
+    /**
+     * Returns the watchdog scheduler, recreating it if a prior {@link #shutdown()} terminated
+     * it. Guards against scheduling on a dead executor (RejectedExecutionException) when the
+     * connector is used again after a teardown — e.g. a same-classloader redeploy, or
+     * {@code destroy()} firing while the connector is still in use elsewhere.
+     */
+    private static synchronized ScheduledExecutorService watchdog() {
+        if (watchdog.isShutdown()) {
+            watchdog = newWatchdog();
+        }
+        return watchdog;
+    }
 
     public static String register(SolaceConnection connection, String connectionName, long timeoutMillis) {
         String txId = UUID.randomUUID().toString();
         Entry entry = new Entry(connection, connectionName);
-        entry.timeoutFuture = watchdog.schedule(() -> autoRollback(txId),
+        entry.timeoutFuture = watchdog().schedule(() -> autoRollback(txId),
                 timeoutMillis, TimeUnit.MILLISECONDS);
         entries.put(txId, entry);
         log.info("TransactionRegistry: registered txId=" + txId + " (connectionName=" + connectionName
@@ -82,6 +98,24 @@ public final class SolaceTransactionRegistry {
         log.info("TransactionRegistry: unregister miss for txId=" + txId
                 + " (activeCount=" + entries.size() + ")");
         return null;
+    }
+
+    /**
+     * Shuts down the watchdog executor and clears any remaining entries. Called on connector
+     * teardown ({@code SolaceConfigConnector.destroy}) so the daemon thread doesn't outlive the
+     * connector's classloader — a lingering thread would pin the classloader and leak it (and
+     * the thread) across redeploys. Outstanding transacted sessions are released by the
+     * connection-pool shutdown that follows; here we just stop the scheduler and drop entries.
+     */
+    public static synchronized void shutdown() {
+        watchdog.shutdownNow();
+        int remaining = entries.size();
+        if (remaining > 0) {
+            log.warn("TransactionRegistry: shutting down with " + remaining + " active transaction(s)"
+                    + " still registered; their connections will be closed by the pool shutdown.");
+        }
+        entries.clear();
+        log.info("TransactionRegistry: watchdog shut down.");
     }
 
     private static void autoRollback(String txId) {

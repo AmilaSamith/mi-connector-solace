@@ -53,6 +53,7 @@ import com.solacesystems.jcsmp.transaction.TransactedSession;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -80,6 +81,7 @@ public class SolaceConnection implements Connection {
     private JCSMPSession session;
     private XMLMessageProducer producer;
     private XMLMessageConsumer consumer;
+    private final Object consumerLock = new Object();
     private final String connectionId;
     private TransactedSession txSession;
     private XMLMessageProducer txProducer;
@@ -113,9 +115,8 @@ public class SolaceConnection implements Connection {
         this.session = session;
         this.connectionId = connectionId;
         this.producer = session.getMessageProducer(new PublishEventHandler());
-        // A synchronous consumer (null callback) is required by Requestor to receive replies
-        this.consumer = session.getMessageConsumer((com.solacesystems.jcsmp.XMLMessageListener) null);
-        this.consumer.start();
+        // The session consumer is created lazily (see ensureConsumer): 
+        // Only operations that receive on the session ( requestCachedMessages and DIRECT sendRequest) create consumer.
         log.info("Solace connection created: " + connectionId);
     }
 
@@ -180,7 +181,7 @@ public class SolaceConnection implements Connection {
         String correlationKey = null;
         CompletableFuture<Void> ackFuture = null;
         if (guaranteed) {
-            correlationKey = destinationName + "-" + System.nanoTime();
+            correlationKey = destinationName + "-" + UUID.randomUUID();
             message.setCorrelationKey(correlationKey);
             if (waitForAck) {
                 ackFuture = new CompletableFuture<>();
@@ -208,7 +209,6 @@ public class SolaceConnection implements Connection {
                 }
                 return new PublishResult(SolaceConstants.ACK_STATUS_ACK, true, correlationKey, null);
             } catch (TimeoutException e) {
-                pendingAcks.remove(correlationKey);
                 String msg = "Publish ACK timeout after " + ackTimeoutMillis + "ms";
                 return new PublishResult(SolaceConstants.ACK_STATUS_TIMEOUT, false, correlationKey, msg);
             } catch (ExecutionException e) {
@@ -216,10 +216,15 @@ public class SolaceConnection implements Connection {
                 String msg = cause != null ? cause.getMessage() : "Broker NACK";
                 return new PublishResult(SolaceConstants.ACK_STATUS_NACK, false, correlationKey, msg);
             } catch (InterruptedException e) {
-                pendingAcks.remove(correlationKey);
                 Thread.currentThread().interrupt();
                 return new PublishResult(SolaceConstants.ACK_STATUS_NACK, false, correlationKey,
                         "Interrupted while waiting for publish ACK");
+            } finally {
+                // Single cleanup point for the tracking entry, whatever the outcome. On ACK/NACK
+                // the event handler already removed it before completing the future; on
+                // timeout/interrupt no callback fired, so this is where it's removed. remove()
+                // on an already-absent key is a harmless no-op.
+                pendingAcks.remove(correlationKey);
             }
         }
 
@@ -292,7 +297,7 @@ public class SolaceConnection implements Connection {
 
         // Set correlation key for guaranteed delivery tracking
         if (replyMessage.getDeliveryMode() != DeliveryMode.DIRECT) {
-            String correlationKey = "reply-" + System.nanoTime();
+            String correlationKey = "reply-" + UUID.randomUUID();
             replyMessage.setCorrelationKey(correlationKey);
         }
 
@@ -345,7 +350,10 @@ public class SolaceConnection implements Connection {
         applyMessageProperties(requestMessage, properties);
 
         if (resolvedMode == DeliveryMode.DIRECT) {
-            // DIRECT: JCSMP Requestor handles reply-to temp topic + blocking receive
+            // DIRECT: JCSMP Requestor handles reply-to temp topic + blocking receive.
+            // The Requestor needs the session consumer started to receive the reply
+            // This matches replies by correlation ID
+            ensureConsumer();
             Requestor requestor = session.createRequestor();
             return requestor.request(requestMessage, timeoutMillis, destination);
         }
@@ -375,12 +383,12 @@ public class SolaceConnection implements Connection {
         // If the caller already set one via properties, use it; otherwise generate one.
         String expectedCorrelationId = requestMessage.getCorrelationId();
         if (expectedCorrelationId == null) {
-            expectedCorrelationId = "req-" + System.nanoTime();
+            expectedCorrelationId = "req-" + UUID.randomUUID();
             requestMessage.setCorrelationId(expectedCorrelationId);
         }
 
         // Set correlation key for guaranteed publish-ACK tracking
-        String correlationKey = destinationName + "-req-" + System.nanoTime();
+        String correlationKey = destinationName + "-req-" + UUID.randomUUID();
         requestMessage.setCorrelationKey(correlationKey);
 
         ConsumerFlowProperties flowProps = new ConsumerFlowProperties();
@@ -571,7 +579,16 @@ public class SolaceConnection implements Connection {
                 } catch (JCSMPException e) {
                     log.error("Failed to create transacted producer on connection: " + connectionId
                             + " — closing transacted session: " + e.getMessage(), e);
-                    try { newSession.close(); } catch (Exception ignored) { }
+                    try {
+                        // Close the half-built transacted session so it isn't leaked; the
+                        // original producer-create failure is rethrown below.
+                        newSession.close();
+                    } catch (Exception ignored) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Error closing half-built transacted session during cleanup on"
+                                    + " connection: " + connectionId + " — " + ignored.getMessage());
+                        }
+                    }
                     throw e;
                 }
             } else {
@@ -626,7 +643,9 @@ public class SolaceConnection implements Connection {
     }
 
     public boolean hasActiveTransaction() {
-        synchronized (txLock) { return txSession != null; }
+        synchronized (txLock) {
+            return txSession != null;
+        }
     }
 
     private void closeTransactedSessionInternal() {
@@ -644,12 +663,20 @@ public class SolaceConnection implements Connection {
             }
             txFlowReceivers.clear();
         }
-        if (txProducer != null) { txProducer.close(); txProducer = null; }
-        if (txSession != null)  { txSession.close();  txSession = null;  }
+        if (txProducer != null) {
+            txProducer.close();
+            txProducer = null;
+        }
+        if (txSession != null) {
+            txSession.close();
+            txSession = null;
+        }
     }
 
     public void closeTransactedSession() {
-        synchronized (txLock) { closeTransactedSessionInternal(); }
+        synchronized (txLock) {
+            closeTransactedSessionInternal();
+        }
     }
 
     public PublishResult publishTransacted(String destinationType, String destinationName,
@@ -673,7 +700,7 @@ public class SolaceConnection implements Connection {
             applyMessageProperties(msg, properties);
             // Stable correlation key per transacted publish — surfaced in the PublishResult and
             // visible in broker-side message-spool browsing for "where did this message go" diagnostics.
-            String correlationKey = "tx-" + connectionId + "-" + System.nanoTime();
+            String correlationKey = "tx-" + connectionId + "-" + UUID.randomUUID();
             msg.setCorrelationKey(correlationKey);
             log.info("publishTransacted: sending to " + destinationType + " '" + destinationName
                     + "' on connectionId=" + connectionId + " (correlationKey=" + correlationKey + ")");
@@ -912,6 +939,19 @@ public class SolaceConnection implements Connection {
         List<BytesXMLMessage> collected = new ArrayList<>();
         boolean subscribed = false;
         try {
+            // Cached messages are delivered to the session consumer
+            ensureConsumer();
+
+            // The session consumer is shared and long-lived across pooled reuse. A previous
+            // operation (e.g. an earlier cache request that hit its message cap or quiet-period
+            // break) may have left messages buffered on it. Clear them first so they can't be
+            // mis-attributed to this cache request.
+            int stale = drainSessionConsumer();
+            if (stale > 0) {
+                log.warn("requestCachedMessages: discarded " + stale + " stale message(s) buffered on"
+                        + " the session consumer before cache request for topic '" + topicPattern + "'");
+            }
+
             // Subscribe so cached messages route to the session consumer that we drain below.
             session.addSubscription(topic);
             subscribed = true;
@@ -958,10 +998,95 @@ public class SolaceConnection implements Connection {
                 }
             }
             try {
+                // Release the per-request cache session created for this operation.
                 cacheSession.close();
             } catch (Exception ignored) {
-                // CacheSession.close is best-effort cleanup
+                if (log.isDebugEnabled()) {
+                    log.debug("Error closing cache session during cleanup for topic '" + topicPattern
+                            + "' on connection: " + connectionId + " — " + ignored.getMessage());
+                }
             }
+            // Drain anything still buffered (messages that arrived after we hit the cap or the
+            // quiet-period break) so no residue is left on the shared consumer for the next
+            // borrower of this pooled connection.
+            int leftover = drainSessionConsumer();
+            if (leftover > 0 && log.isDebugEnabled()) {
+                log.debug("requestCachedMessages: drained " + leftover + " trailing message(s) after"
+                        + " cache request for topic '" + topicPattern + "'");
+            }
+        }
+    }
+
+    /**
+     * Lazily creates and starts the session's synchronous consumer the first time an
+     * operation needs to receive on the session — {@link #requestCachedMessages} (cached
+     * messages are delivered here) or the DIRECT branch of {@link #sendRequest} (the
+     * {@link Requestor} reads its reply here). Connections that only publish/poll/browse
+     * never create one. Idempotent and synchronized so reuse across pooled borrows returns
+     * the same started consumer.
+     */
+    private XMLMessageConsumer ensureConsumer() throws JCSMPException {
+        synchronized (consumerLock) {
+            if (consumer == null) {
+                XMLMessageConsumer newConsumer = null;
+                try {
+                    // null listener => synchronous consumer (messages pulled via receive()).
+                    newConsumer = session.getMessageConsumer((com.solacesystems.jcsmp.XMLMessageListener) null);
+                    newConsumer.start();
+                    // Publish to the field only once fully started, so a start() failure can't
+                    // leave a half-initialized consumer that later calls would blindly reuse.
+                    consumer = newConsumer;
+                    if (log.isDebugEnabled()) {
+                        log.debug("Session consumer started on connection: " + connectionId);
+                    }
+                } catch (JCSMPException e) {
+                    // Close the partially-created consumer so it isn't leaked and the next call
+                    // retries from a clean state. Don't log here — the operation layer
+                    // (SolaceRequestCachedMessages / SolaceSendRequest) logs and reports this as
+                    // a connector fault. Rethrow with context so that single log says where it
+                    // failed, instead of duplicate-logging the same error at this hop.
+                    if (newConsumer != null) {
+                        try {
+                            newConsumer.close();
+                        } catch (Exception ignored) {
+                            if (log.isDebugEnabled()) {
+                                log.debug("Error closing partially-created consumer on connection: "
+                                        + connectionId + " — " + ignored.getMessage());
+                            }
+                        }
+                    }
+                    throw new JCSMPException("Failed to create session consumer on connection "
+                            + connectionId, e);
+                }
+            }
+            return consumer;
+        }
+    }
+
+    /**
+     * Drains and discards every message currently buffered on the shared session consumer,
+     * returning the count discarded. Non-blocking ({@code receiveNoWait}) — it only clears
+     * what is already queued, not what might arrive later. Used to keep cached-message
+     * residue from bleeding across pooled reuse of this connection (the session consumer is
+     * shared by the cache-request and DIRECT request-reply paths). Best-effort: a receive
+     * error just ends the drain. Returns 0 if the consumer was never created.
+     */
+    private int drainSessionConsumer() {
+        synchronized (consumerLock) {
+            if (consumer == null) {
+                return 0;
+            }
+            int discarded = 0;
+            try {
+                while (consumer.receiveNoWait() != null) {
+                    discarded++;
+                }
+            } catch (JCSMPException e) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Error draining session consumer (stopping drain): " + e.getMessage());
+                }
+            }
+            return discarded;
         }
     }
 
@@ -991,6 +1116,19 @@ public class SolaceConnection implements Connection {
         if (producer != null) {
             producer.close();
             producer = null;
+        }
+        // Fail any publishes still blocked waiting for a broker ACK: the session is going away,
+        // so no ack/nack callback will ever arrive. Completing the futures exceptionally
+        // releases those threads immediately (otherwise they'd wait out the full ack timeout)
+        // and clears the tracking map. completeExceptionally on an already-completed future is
+        // a no-op, so this is safe against a callback racing in.
+        if (!pendingAcks.isEmpty()) {
+            JCSMPException closing = new JCSMPException(
+                    "Connection " + connectionId + " closed before publish ACK was received");
+            for (CompletableFuture<Void> future : pendingAcks.values()) {
+                future.completeExceptionally(closing);
+            }
+            pendingAcks.clear();
         }
         // Always release transacted resources, even if the underlying session was already
         // closed externally (e.g. during a reconnect storm) — prevents producer/session leaks.

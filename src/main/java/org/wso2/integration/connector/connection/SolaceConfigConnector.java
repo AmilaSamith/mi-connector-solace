@@ -73,6 +73,14 @@ public class SolaceConfigConnector extends AbstractConnector implements ManagedL
 
     @Override
     public void destroy() {
+        // Stop the transaction watchdog first, so a timeout-triggered auto-rollback can't race
+        // with the pool shutdown below — and so its daemon thread doesn't outlive the connector
+        // (which would leak the thread and pin the classloader on redeploy).
+        try {
+            SolaceTransactionRegistry.shutdown();
+        } catch (Exception e) {
+            log.error("Error shutting down Solace transaction watchdog", e);
+        }
         // Close all connections on destroy
         try {
             ConnectionHandler handler = ConnectionHandler.getConnectionHandler();

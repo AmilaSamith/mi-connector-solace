@@ -56,14 +56,23 @@ public class SolaceConnectionFactory implements ConnectionFactory {
 
     @Override
     public SolaceConnection makeObject() {
+        JCSMPSession session = null;
         try {
-            JCSMPSession session = JCSMPFactory.onlyInstance().createSession(
+            session = JCSMPFactory.onlyInstance().createSession(
                     jcsmpProperties, null, new SolaceSessionEventHandler());
             session.connect();
 
             return new SolaceConnection(session, connectionName);
         } catch (JCSMPException e) {
             log.error("Failed to create Solace connection", e);
+            if (session != null) {
+                try {
+                    // Releases any producer/consumer already created on it.
+                    session.closeSession();
+                } catch (Exception ex) {
+                    log.warn("Failed to close session after failed connection setup: " + ex.getMessage());
+                }
+            }
             throw new RuntimeException("Failed to create Solace connection: " + e.getMessage(), e);
         }
     }

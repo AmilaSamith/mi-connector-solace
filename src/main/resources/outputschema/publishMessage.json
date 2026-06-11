@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Publish Message Operation",
+  "description": "Output schema for the Solace publishMessage operation.",
+  "properties": {
+    "payload": {
+      "type": "object",
+      "description": "The main response payload from the publishMessage operation.",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "The name of the topic or queue the message was published to."
+        },
+        "destinationType": {
+          "type": "string",
+          "description": "The type of destination the message was published to (e.g., TOPIC, QUEUE)."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the publish (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "messageType": {
+          "type": "string",
+          "description": "The message type used for the publish (e.g., TEXT, BYTES, XML)."
+        },
+        "ackStatus": {
+          "type": "string",
+          "description": "The broker acknowledgement status for the publish (e.g., ACK, NACK, TIMEOUT)."
+        },
+        "ackReceived": {
+          "type": "boolean",
+          "description": "Whether a broker acknowledgement was received for the published message."
+        },
+        "correlationKey": {
+          "type": ["string", "null"],
+          "description": "The correlation key associated with the publish, or null if none was set."
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error detail when the publish was not acknowledged, or null on success."
+        },
+        "publishedAt": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the message was published."
+        }
+      },
+      "required": [
+        "destination",
+        "destinationType",
+        "deliveryMode",
+        "messageType",
+        "ackStatus",
+        "ackReceived",
+        "correlationKey",
+        "error",
+        "publishedAt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["payload"],
+  "additionalProperties": false
+}

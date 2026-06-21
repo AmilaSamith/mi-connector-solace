@@ -33,6 +33,16 @@
             <excludes>
                 <exclude>**/metrics_module.xml</exclude>
                 <exclude>**/META-INF/*</exclude>
+                <!-- requestCachedMessages is hidden / not yet released: keep its source files
+                     in place but exclude them from the packaged connector so the operation
+                     does not appear in the MI operation palette. The MI tooling builds the
+                     palette from these resource files, not from consume/component.xml, so
+                     excluding them here is what actually hides the operation. To release:
+                     remove these three excludes and re-register the component in
+                     consume/component.xml. -->
+                <exclude>uischema/requestCachedMessages.json</exclude>
+                <exclude>outputschema/requestCachedMessages.json</exclude>
+                <exclude>consume/requestCachedMessages.xml</exclude>
             </excludes>
         </fileSet>
     </fileSets>

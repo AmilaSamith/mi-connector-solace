@@ -16,6 +16,15 @@
   ~ specific language governing permissions and limitations
   ~ under the License.
   -->
+<!-- ============================================================================
+     DISABLED / NOT YET RELEASED
+     The requestCachedMessages operation is intentionally hidden: its component is
+     left unregistered in consume/component.xml, so it does not appear in the
+     operation palette. This file is retained in its original location. It will be
+     released once the operation has been tested end-to-end against a real PubSub+
+     Cache instance. To release: re-register the component block in
+     consume/component.xml.
+     ============================================================================ -->
 <template name="requestCachedMessages" xmlns="http://ws.apache.org/ns/synapse">
     <parameter name="name" description="The Solace connection name to use."/>
     <parameter name="cacheName" description="REQUIRED. The name of a PubSub+ Cache Instance configured on the broker for this VPN. The instance must be deployed, joined to the VPN, and configured to cache the requested topic pattern."/>

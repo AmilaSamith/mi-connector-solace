@@ -1,4 +1,5 @@
 {
+  "_comment": "DISABLED / NOT YET RELEASED: this operation is hidden — its component is left unregistered in consume/component.xml so it does not appear in the operation palette. This file is retained in its original location and will be released once the operation has been tested end-to-end against a real PubSub+ Cache instance.",
   "connectorName": "solace",
   "operationName": "requestCachedMessages",
   "title": "Request Cached Messages",

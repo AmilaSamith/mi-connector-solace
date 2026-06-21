@@ -28,10 +28,19 @@
             <displayName>Browse Queue</displayName>
             <description>Browses messages on a queue without consuming them. Useful for diagnostics and DLQ inspection.</description>
         </component>
+        <!-- requestCachedMessages is temporarily hidden until it has been tested end-to-end
+             against a real PubSub+ Cache instance. Hiding it here (leaving the component
+             unregistered) keeps it out of the operation palette while its resource files
+             (consume/requestCachedMessages.xml, uischema/requestCachedMessages.json,
+             outputschema/requestCachedMessages.json) and the operation class
+             (SolaceRequestCachedMessages / SolaceConnection.requestCachedMessages) all stay
+             in place, compiled but unreachable. To re-enable, just uncomment the component
+             block below.
         <component name="requestCachedMessages">
             <file>requestCachedMessages.xml</file>
             <displayName>Request Cached Messages</displayName>
             <description>Requests historical messages from a PubSub+ Cache Instance for a topic. Requires a cache instance to be deployed and configured for the requested topic pattern.</description>
         </component>
+        -->
     </subComponents>
 </component>

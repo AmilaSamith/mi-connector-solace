@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "DISABLED / NOT YET RELEASED: the requestCachedMessages operation is hidden — its component is left unregistered in consume/component.xml so it does not appear in the operation palette. This file is retained in its original location and will be released once the operation has been tested end-to-end against a real PubSub+ Cache instance.",
   "type": "object",
   "title": "Output Schema for Request Cached Messages Operation",
   "description": "Output schema for the Solace requestCachedMessages operation.",

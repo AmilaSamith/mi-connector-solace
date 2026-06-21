@@ -143,7 +143,7 @@
                         { "name": "responseVariable", "type": "stringOrExpression", "required": false, "description": "Property name where the result JSON is stored." },
                         { "name": "overwriteBody", "type": "boolean", "required": false, "description": "Unused for cache request — messages are returned via the response variable." }
                     ],
-                    "isHidden": false
+                    "isHidden": true
                 },
                 {
                     "name": "beginTransaction",

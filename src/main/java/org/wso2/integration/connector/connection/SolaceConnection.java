@@ -32,6 +32,7 @@ import com.solacesystems.jcsmp.Destination;
 import com.solacesystems.jcsmp.EndpointProperties;
 import com.solacesystems.jcsmp.FlowReceiver;
 import com.solacesystems.jcsmp.JCSMPErrorResponseException;
+import com.solacesystems.jcsmp.JCSMPErrorResponseSubcodeEx;
 import com.solacesystems.jcsmp.JCSMPException;
 import com.solacesystems.jcsmp.JCSMPFactory;
 import com.solacesystems.jcsmp.JCSMPRequestTimeoutException;
@@ -890,7 +891,13 @@ public class SolaceConnection implements Connection {
     }
 
     /**
-     * Issues a Solace Cache request for a topic pattern. Adds a transient subscription on
+     * DISABLED / NOT YET RELEASED: this method backs the requestCachedMessages operation,
+     * which is intentionally hidden from the operation palette (its component is left
+     * unregistered in consume/component.xml). It is retained here, compiled but unreachable,
+     * and will be released once the operation has been tested end-to-end against a real
+     * PubSub+ Cache instance.
+     *
+     * <p>Issues a Solace Cache request for a topic pattern. Adds a transient subscription on
      * the session, sends a blocking cache request to the named cache instance, then drains
      * any cached messages that arrived on the session's sync consumer. The subscription is
      * removed before returning.
@@ -912,12 +919,16 @@ public class SolaceConnection implements Connection {
      * @param maxAgeSeconds    max age of cached messages in seconds (0 = any age)
      * @param requestTimeoutMs how long the cache request itself may take
      * @param liveDataAction   one of FULFILL, FLOW_THRU, QUEUE — controls how live messages
-     *                         on the same topic interleave with the cached delivery
+     *                         on the same topic interleave with the cached delivery. For a
+     *                         wildcard {@code topicPattern} (containing '*' or '>'), only
+     *                         FLOW_THRU is valid; FULFILL and QUEUE require an exact topic
      * @param drainTimeoutMs   how long to keep draining the consumer for cached messages
      *                         after the cache request returns. Cached messages can arrive
      *                         asynchronously on the session consumer; this is the wait window
      * @return list of received cached messages
      * @throws JCSMPException if cache session creation, subscription, or request fails
+     * @throws IllegalArgumentException if a wildcard topic is combined with a live data action
+     *                                  other than FLOW_THRU
      */
     public List<BytesXMLMessage> requestCachedMessages(String cacheName, String topicPattern,
                                                        long maxMessages, int maxAgeSeconds,
@@ -926,6 +937,19 @@ public class SolaceConnection implements Connection {
 
         Topic topic = JCSMPFactory.onlyInstance().createTopic(topicPattern);
         CacheLiveDataAction action = resolveLiveDataAction(liveDataAction);
+
+        // Solace constraint: a cache request whose topic contains wildcards ('*' or '>') only
+        // supports the FLOW_THRU live data action. FULFILL and QUEUE require an exact topic, and
+        // JCSMP rejects the combination deep inside CacheRequestProperties' constructor with
+        // "Wildcard topic and live data action <ACTION> not supported". Fail fast here with a
+        // clear, actionable message instead of surfacing that raw IllegalArgumentException.
+        if ((topicPattern.contains("*") || topicPattern.contains(">"))
+                && action != CacheLiveDataAction.FLOW_THRU) {
+            throw new IllegalArgumentException(
+                    "Cache request for wildcard topic '" + topicPattern + "' requires liveDataAction"
+                    + " FLOW_THRU; '" + action + "' is only valid for an exact (non-wildcard) topic."
+                    + " Set liveDataAction to FLOW_THRU, or request an exact topic.");
+        }
 
         // CacheSessionProperties has no no-arg constructor; use the 4-arg form
         // (name, maxMsgs, maxAge, timeout). Timeout is per-cache-request in ms.
@@ -952,14 +976,26 @@ public class SolaceConnection implements Connection {
                         + " the session consumer before cache request for topic '" + topicPattern + "'");
             }
 
-            // Subscribe so cached messages route to the session consumer that we drain below.
-            session.addSubscription(topic);
+            // Subscribe so cached messages route to the session consumer we drain below.
+            // On a pooled session the subscription may already be present (subcode 13);
+            // tolerate it and reuse it — finally still removes it.
+            try {
+                session.addSubscription(topic);
+            } catch (JCSMPErrorResponseException e) {
+                if (e.getSubcodeEx() != JCSMPErrorResponseSubcodeEx.SUBSCRIPTION_ALREADY_PRESENT) {
+                    throw e;
+                }
+                log.debug("Subscription for topic '" + topicPattern + "' already present on the pooled"
+                        + " session; reusing it for this cache request.");
+            }
             subscribed = true;
 
             // Blocking cache request — returns when broker finishes streaming cached msgs
-            // or the request times out.
+            // or the request times out. subscribeFlag MUST be false: we add the subscription
+            // ourselves above. Passing true makes JCSMP add the SAME subscription a second time,
+            // which the broker rejects with "400: Subscription Already Exists" (subcode 13).
             CacheRequestResult result = cacheSession.sendCacheRequest(
-                    Long.valueOf(System.nanoTime()), topic, true, action);
+                    Long.valueOf(System.nanoTime()), topic, false, action);
             if (log.isDebugEnabled()) {
                 log.debug("Cache request to '" + cacheName + "' for topic '" + topicPattern
                         + "' returned: " + result);

@@ -42,7 +42,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Issues a Solace Cache request to retrieve historical messages cached for a topic.
+ * DISABLED / NOT YET RELEASED: this operation is intentionally hidden from the
+ * connector's operation palette — its component is left unregistered in
+ * consume/component.xml. The class and its resource files are retained in place and
+ * will be released once the operation has been tested end-to-end against a real
+ * PubSub+ Cache instance.
+ *
+ * <p>Issues a Solace Cache request to retrieve historical messages cached for a topic.
  *
  * <p><b>Prerequisites — this operation only succeeds when the broker side is set up:</b></p>
  * <ul>
@@ -155,6 +161,11 @@ public class SolaceRequestCachedMessages extends AbstractConnectorOperation {
                     + ". Verify that (1) a PubSub+ Cache Instance exists for this VPN,"
                     + " (2) it caches the requested topic pattern, and (3) the cache instance"
                     + " name matches the broker configuration.", e, messageContext);
+        } catch (IllegalArgumentException e) {
+            // Invalid parameter combination caught before the broker call — most commonly a
+            // wildcard topic paired with a non-FLOW_THRU live data action. Surface the
+            // specific reason rather than the generic "operation failed" message.
+            handleException("Solace cache request rejected: " + e.getMessage(), e, messageContext);
         } catch (Exception e) {
             handleException("Solace cache request operation failed (connection: " + connectionName + ")",
                     e, messageContext);

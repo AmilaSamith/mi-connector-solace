@@ -94,7 +94,7 @@
                   "value": {
                     "name": "password",
                     "displayName": "Password",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "true",
                     "helpTip": "The password for authenticating with the Solace broker.",
@@ -108,7 +108,7 @@
                   "value": {
                     "name": "oauth2AccessToken",
                     "displayName": "OAuth2 Access Token",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "false",
                     "helpTip": "OAuth2 access token used to authenticate with the broker. Provide either this, an OIDC ID token, or both. The broker validates the token against its configured OAuth profile.",
@@ -122,7 +122,7 @@
                   "value": {
                     "name": "oidcIdToken",
                     "displayName": "OIDC ID Token",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "false",
                     "helpTip": "Optional OIDC ID token. Used in the OAuth client-role profile. Provide either this, an access token, or both.",
@@ -274,7 +274,7 @@
                   "value": {
                     "name": "sslTrustStorePassword",
                     "displayName": "Trust Store Password",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "false",
                     "helpTip": "Password for the SSL trust store."
@@ -319,7 +319,7 @@
                   "value": {
                     "name": "sslKeyStorePassword",
                     "displayName": "Key Store Password",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "false",
                     "helpTip": "Password for the SSL key store."
@@ -341,7 +341,7 @@
                   "value": {
                     "name": "sslKeyPassword",
                     "displayName": "Private Key Password",
-                    "inputType": "string",
+                    "inputType": "stringOrExpression",
                     "defaultValue": "",
                     "required": "false",
                     "helpTip": "Password for the SSL private key."
@@ -363,7 +363,7 @@
                     "inputType": "boolean",
                     "defaultValue": true,
                     "required": "false",
-                    "helpTip": "Whether to validate the server certificate."
+                    "helpTip": "Whether to validate the broker's TLS certificate against the trust store. Keep this enabled. Disabling it turns off certificate verification and exposes the connection to man-in-the-middle attacks — not recommended for production."
                   }
                 },
                 {
@@ -374,7 +374,24 @@
                     "inputType": "boolean",
                     "defaultValue": true,
                     "required": "false",
-                    "helpTip": "Whether to validate the certificate expiration date."
+                    "helpTip": "Whether to validate the certificate expiration date. Keep this enabled; disabling it allows expired certificates and is not recommended for production.",
+                    "enableCondition": [
+                      {"sslValidateCertificate": "true"}
+                    ]
+                  }
+                },
+                {
+                  "type": "attribute",
+                  "value": {
+                    "name": "sslValidateHostname",
+                    "displayName": "Validate Certificate Hostname",
+                    "inputType": "boolean",
+                    "defaultValue": true,
+                    "required": "false",
+                    "helpTip": "Whether to verify that the broker's certificate matches the host being connected to. Keep this enabled. Disabling it allows a valid certificate issued for a different host to be accepted, defeating man-in-the-middle protection — not recommended for production.",
+                    "enableCondition": [
+                      {"sslValidateCertificate": "true"}
+                    ]
                   }
                 }
               ]

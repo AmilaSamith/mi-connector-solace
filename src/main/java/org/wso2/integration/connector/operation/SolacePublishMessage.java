@@ -151,9 +151,8 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             boolean waitForAck = StringUtils.isNotEmpty(waitForAckStr) && Boolean.parseBoolean(waitForAckStr);
             String ackTimeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.ACK_TIMEOUT);
-            long ackTimeout = StringUtils.isNotEmpty(ackTimeoutStr)
-                    ? Long.parseLong(ackTimeoutStr)
-                    : SolaceConstants.DEFAULT_ACK_TIMEOUT_MS;
+            long ackTimeout = SolaceUtils.parseLongOrDefault(ackTimeoutStr,
+                    SolaceConstants.DEFAULT_ACK_TIMEOUT_MS, SolaceConstants.ACK_TIMEOUT);
             String continueOnAckFailureStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CONTINUE_ON_ACK_FAILURE);
             boolean continueOnAckFailure = StringUtils.isNotEmpty(continueOnAckFailureStr)
@@ -180,8 +179,10 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
                 }
 
                 if (log.isDebugEnabled()) {
-                    log.debug("Message '" + payload + "' published to " + destinationType + " '" + destinationName
-                            + "' with delivery mode: " + deliveryMode + ", ackStatus=" + result.getAckStatus());
+                    log.debug("Message published to " + destinationType + " '" + destinationName
+                            + "' (deliveryMode=" + deliveryMode + ", payloadLength="
+                            + (payload != null ? payload.length() : 0)
+                            + ", ackStatus=" + result.getAckStatus() + ")");
                 }
 
                 setResultInContext(messageContext, result, destinationType, destinationName, deliveryMode,

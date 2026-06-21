@@ -27,6 +27,7 @@ import org.wso2.integration.connector.core.AbstractConnector;
 import org.wso2.integration.connector.core.ConnectException;
 import org.wso2.integration.connector.core.connection.ConnectionHandler;
 import org.wso2.integration.connector.core.util.ConnectorUtils;
+import org.wso2.integration.connector.utils.SolaceUtils;
 
 public class SolaceBeginTransaction extends AbstractConnector {
 
@@ -54,9 +55,9 @@ public class SolaceBeginTransaction extends AbstractConnector {
             
             String timeoutStr = (String) ConnectorUtils.lookupTemplateParamater(
                     messageContext, SolaceConstants.TX_TIMEOUT_MILLIS);
-            long timeoutMillis = (timeoutStr != null && !timeoutStr.isEmpty())
-                    ? Long.parseLong(timeoutStr)
-                    : Long.parseLong(SolaceConstants.DEFAULT_TX_TIMEOUT_MILLIS);
+            long timeoutMillis = SolaceUtils.parseLongOrDefault(timeoutStr,
+                    Long.parseLong(SolaceConstants.DEFAULT_TX_TIMEOUT_MILLIS),
+                    SolaceConstants.TX_TIMEOUT_MILLIS);
             log.info("solace.beginTransaction: connectionName=" + connectionName
                     + ", timeoutMillis=" + timeoutMillis);
 

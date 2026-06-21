@@ -35,6 +35,7 @@ import org.wso2.integration.connector.constants.SolaceConstants;
 import org.wso2.integration.connector.core.AbstractConnectorOperation;
 import org.wso2.integration.connector.core.connection.ConnectionHandler;
 import org.wso2.integration.connector.core.util.ConnectorUtils;
+import org.wso2.integration.connector.utils.SolaceUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -106,19 +107,17 @@ public class SolaceRequestCachedMessages extends AbstractConnectorOperation {
 
             String maxMessagesStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_MAX_MESSAGES);
-            long maxMessages = StringUtils.isNotEmpty(maxMessagesStr)
-                    ? Long.parseLong(maxMessagesStr)
-                    : SolaceConstants.DEFAULT_CACHE_MAX_MESSAGES;
+            long maxMessages = SolaceUtils.parseLongOrDefault(maxMessagesStr,
+                    SolaceConstants.DEFAULT_CACHE_MAX_MESSAGES, SolaceConstants.CACHE_MAX_MESSAGES);
 
             String maxAgeStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_MAX_AGE_SECONDS);
-            int maxAge = StringUtils.isNotEmpty(maxAgeStr) ? Integer.parseInt(maxAgeStr) : 0;
+            int maxAge = SolaceUtils.parseIntOrDefault(maxAgeStr, 0, SolaceConstants.CACHE_MAX_AGE_SECONDS);
 
             String requestTimeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_REQUEST_TIMEOUT);
-            long requestTimeout = StringUtils.isNotEmpty(requestTimeoutStr)
-                    ? Long.parseLong(requestTimeoutStr)
-                    : SolaceConstants.DEFAULT_CACHE_REQUEST_TIMEOUT_MS;
+            long requestTimeout = SolaceUtils.parseLongOrDefault(requestTimeoutStr,
+                    SolaceConstants.DEFAULT_CACHE_REQUEST_TIMEOUT_MS, SolaceConstants.CACHE_REQUEST_TIMEOUT);
 
             String liveDataAction = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_LIVE_DATA_ACTION);

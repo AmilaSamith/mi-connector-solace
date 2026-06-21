@@ -77,9 +77,8 @@ public class SolaceBrowseQueue extends AbstractConnectorOperation {
 
             String maxMessagesStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.MAX_MESSAGES);
-            int maxMessages = StringUtils.isNotEmpty(maxMessagesStr)
-                    ? Integer.parseInt(maxMessagesStr)
-                    : SolaceConstants.DEFAULT_BROWSE_MAX_MESSAGES;
+            int maxMessages = SolaceUtils.parseIntOrDefault(maxMessagesStr,
+                    SolaceConstants.DEFAULT_BROWSE_MAX_MESSAGES, SolaceConstants.MAX_MESSAGES);
             if (maxMessages <= 0) {
                 handleException("maxMessages must be > 0 (got " + maxMessages + ").", messageContext);
                 return;
@@ -87,9 +86,8 @@ public class SolaceBrowseQueue extends AbstractConnectorOperation {
 
             String timeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.BROWSE_TIMEOUT);
-            long timeout = StringUtils.isNotEmpty(timeoutStr)
-                    ? Long.parseLong(timeoutStr)
-                    : SolaceConstants.DEFAULT_BROWSE_TIMEOUT_MS;
+            long timeout = SolaceUtils.parseLongOrDefault(timeoutStr,
+                    SolaceConstants.DEFAULT_BROWSE_TIMEOUT_MS, SolaceConstants.BROWSE_TIMEOUT);
 
             String selector = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.SELECTOR);

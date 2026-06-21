@@ -119,9 +119,8 @@ public class SolacePollMessage extends AbstractConnectorOperation {
 
             String timeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.POLL_TIMEOUT);
-            long timeout = StringUtils.isNotEmpty(timeoutStr)
-                    ? Long.parseLong(timeoutStr)
-                    : SolaceConstants.DEFAULT_POLL_TIMEOUT_MS;
+            long timeout = SolaceUtils.parseLongOrDefault(timeoutStr,
+                    SolaceConstants.DEFAULT_POLL_TIMEOUT_MS, SolaceConstants.POLL_TIMEOUT);
 
             String selector = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.SELECTOR);

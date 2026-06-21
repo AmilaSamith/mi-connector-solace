@@ -113,7 +113,8 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
 
             String timeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.REQUEST_TIMEOUT);
-            long timeout = StringUtils.isNotEmpty(timeoutStr) ? Long.parseLong(timeoutStr) : DEFAULT_TIMEOUT_MS;
+            long timeout = SolaceUtils.parseLongOrDefault(timeoutStr, DEFAULT_TIMEOUT_MS,
+                    SolaceConstants.REQUEST_TIMEOUT);
 
             // Get message payload and detect its content type for downstream subscribers
             String[] payloadAndType = SolaceUtils.extractPayloadAndContentType(messageContext);

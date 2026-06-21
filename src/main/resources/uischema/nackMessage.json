@@ -60,6 +60,7 @@
               "displayName": "Overwrite Body",
               "inputType": "boolean",
               "defaultValue": false,
+              "hidden": true,
               "helpTip": "Replace the Message Body in Message Context with the response of the operation."
             }
           }

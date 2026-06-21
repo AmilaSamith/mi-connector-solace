@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Send Request Operation",
+  "description": "Output schema for the Solace sendRequest operation.",
+  "properties": {
+    "payload": {
+      "type": ["object", "array", "string", "number", "boolean", "null"],
+      "description": "The reply message content received from the responder. JSON replies are parsed into an object or array; non-JSON replies (text, XML, binary) are surfaced as a string. Inspect attributes.contentType to determine how to interpret it."
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the sendRequest operation and the received reply.",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "The name of the topic or queue the request was sent to."
+        },
+        "destinationType": {
+          "type": "string",
+          "description": "The type of destination the request was sent to (e.g., TOPIC, QUEUE)."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the request (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "contentType": {
+          "type": "string",
+          "description": "The content type of the reply payload (e.g., application/json, application/xml, text/plain)."
+        },
+        "correlationId": {
+          "type": "string",
+          "description": "The correlation id of the reply message. Present only when the reply carried a correlation id."
+        },
+        "applicationMessageId": {
+          "type": "string",
+          "description": "The application-defined message id of the reply. Present only when set on the reply."
+        },
+        "applicationMessageType": {
+          "type": "string",
+          "description": "The application-defined message type of the reply. Present only when set on the reply."
+        },
+        "receiveTimestamp": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the reply was received. Present only when greater than zero."
+        }
+      },
+      "required": [
+        "destination",
+        "destinationType",
+        "deliveryMode",
+        "contentType"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

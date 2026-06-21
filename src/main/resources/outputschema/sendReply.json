@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Send Reply Operation",
+  "description": "Output schema for the Solace sendReply operation.",
+  "properties": {
+    "payload": {
+      "type": "object",
+      "description": "The main response payload from the sendReply operation.",
+      "properties": {
+        "sent": {
+          "type": "boolean",
+          "description": "Whether the reply was sent successfully."
+        },
+        "replyTo": {
+          "type": "string",
+          "description": "The name of the reply-to destination the reply was sent to."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the reply (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "messageType": {
+          "type": "string",
+          "description": "The message type used for the reply (e.g., TEXT, BYTES, XML)."
+        },
+        "correlationId": {
+          "type": "string",
+          "description": "The correlation id carried over from the inbound request message. Present only when the request carried a correlation id."
+        },
+        "repliedAt": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the reply was sent."
+        }
+      },
+      "required": [
+        "sent",
+        "replyTo",
+        "deliveryMode",
+        "messageType",
+        "repliedAt"
+      ],
+      "additionalProperties": false
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the sendReply operation.",
+      "properties": {
+        "sent": {
+          "type": "boolean",
+          "description": "Whether the reply was sent successfully."
+        },
+        "replyTo": {
+          "type": "string",
+          "description": "The name of the reply-to destination the reply was sent to."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the reply (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "correlationId": {
+          "type": "string",
+          "description": "The correlation id carried over from the inbound request message. Present only when the request carried a correlation id."
+        }
+      },
+      "required": [
+        "sent",
+        "replyTo",
+        "deliveryMode"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

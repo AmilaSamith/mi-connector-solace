@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Request Cached Messages Operation",
+  "description": "Output schema for the Solace requestCachedMessages operation.",
+  "properties": {
+    "payload": {
+      "type": "array",
+      "description": "The list of cached message summaries returned by the broker's PubSub+ Cache for the requested topic pattern.",
+      "items": {
+        "type": "object",
+        "description": "A summary of a single cached message.",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "description": "The broker-assigned message id. Present only when set."
+          },
+          "topic": {
+            "type": "string",
+            "description": "The topic the cached message was published to. Present only when the message carried a destination."
+          },
+          "applicationMessageId": {
+            "type": "string",
+            "description": "The application-defined message id. Present only when set."
+          },
+          "receiveTimestamp": {
+            "type": "integer",
+            "description": "Epoch timestamp in milliseconds when the message was received. Present only when non-zero."
+          },
+          "senderTimestamp": {
+            "type": "integer",
+            "description": "Sender-supplied timestamp as a UTC epoch in milliseconds. Present only when set."
+          },
+          "cacheRequest": {
+            "type": "boolean",
+            "description": "Whether the message was delivered as part of a cache response (as opposed to live data)."
+          },
+          "payload": {
+            "type": "string",
+            "description": "The message body as a UTF-8 string. Inspect contentType to determine how to interpret it."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "The content type of the message payload (e.g., application/json, application/xml, text/plain)."
+          }
+        },
+        "required": [
+          "cacheRequest",
+          "payload",
+          "contentType"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the requestCachedMessages operation.",
+      "properties": {
+        "cacheName": {
+          "type": "string",
+          "description": "The name of the PubSub+ Cache Instance the request was issued against."
+        },
+        "topicPattern": {
+          "type": "string",
+          "description": "The topic pattern the cached messages were requested for."
+        },
+        "messageCount": {
+          "type": "integer",
+          "description": "The number of cached messages returned."
+        }
+      },
+      "required": [
+        "cacheName",
+        "topicPattern",
+        "messageCount"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

@@ -18,11 +18,8 @@
 
 package org.wso2.integration.connector.operation;
 
-import com.solacesystems.jcsmp.BytesMessage;
 import com.solacesystems.jcsmp.BytesXMLMessage;
 import com.solacesystems.jcsmp.JCSMPException;
-import com.solacesystems.jcsmp.TextMessage;
-import com.solacesystems.jcsmp.XMLContentMessage;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
@@ -203,10 +200,10 @@ public class SolacePollMessage extends AbstractConnectorOperation {
             // type takes precedence over anything the publisher may have put there.
             SolaceUtils.populateMessageMetadata(message, attributes);
 
-            byte[] bytes = extractRawPayload(message);
+            byte[] bytes = SolaceUtils.extractRawPayload(message);
             String contentType = message.getHTTPContentType();
             if (StringUtils.isEmpty(contentType)) {
-                contentType = inferContentType(message);
+                contentType = SolaceUtils.inferContentType(message);
             }
             attributes.put("contentType", contentType);
 
@@ -214,51 +211,10 @@ public class SolacePollMessage extends AbstractConnectorOperation {
             // payload field of the response variable. handleConnectorResponse parses it
             // as JSON, so wrap non-JSON content in a JSON string literal.
             String body = new String(bytes, StandardCharsets.UTF_8);
-            payloadJson = looksLikeJson(body) ? body : JSONObject.quote(body);
+            payloadJson = SolaceUtils.looksLikeJson(body) ? body : JSONObject.quote(body);
         }
 
         handleConnectorResponse(messageContext, responseVariable, overwriteBody, payloadJson,
                 null, attributes);
-    }
-
-    private boolean looksLikeJson(String s) {
-        if (s == null || s.isEmpty()) return false;
-        String t = s.trim();
-        return t.startsWith("{") || t.startsWith("[");
-    }
-
-    private byte[] extractRawPayload(BytesXMLMessage message) {
-        if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            return text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof XMLContentMessage) {
-            String xml = ((XMLContentMessage) message).getXMLContent();
-            return xml != null ? xml.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof BytesMessage) {
-            byte[] data = ((BytesMessage) message).getData();
-            return data != null ? data : new byte[0];
-        }
-        byte[] data = message.getBytes();
-        return data != null ? data : new byte[0];
-    }
-
-    private String inferContentType(BytesXMLMessage message) {
-        if (message instanceof XMLContentMessage) {
-            return "application/xml";
-        }
-        if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            if (text != null) {
-                String trimmed = text.trim();
-                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-                    return "application/json";
-                }
-                if (trimmed.startsWith("<")) {
-                    return "application/xml";
-                }
-            }
-            return "text/plain";
-        }
-        return "application/octet-stream";
     }
 }

@@ -18,6 +18,7 @@
 
 package org.wso2.integration.connector.utils;
 
+import com.solacesystems.jcsmp.BytesMessage;
 import com.solacesystems.jcsmp.BytesXMLMessage;
 import com.solacesystems.jcsmp.Destination;
 import com.solacesystems.jcsmp.JCSMPChannelProperties;
@@ -25,6 +26,8 @@ import com.solacesystems.jcsmp.JCSMPProperties;
 import com.solacesystems.jcsmp.Queue;
 import com.solacesystems.jcsmp.SDTException;
 import com.solacesystems.jcsmp.SDTMap;
+import com.solacesystems.jcsmp.TextMessage;
+import com.solacesystems.jcsmp.XMLContentMessage;
 
 import org.apache.axiom.om.OMElement;
 import org.apache.commons.lang.StringUtils;
@@ -37,6 +40,7 @@ import org.wso2.integration.connector.constants.SolaceConstants;
 import org.wso2.integration.connector.core.util.ConnectorUtils;
 import org.wso2.integration.connector.models.SolaceMessageProperties;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -109,6 +113,66 @@ public final class SolaceUtils {
             log.warn("Ignoring invalid numeric value '" + value + "' for parameter '" + paramName + "'.");
             return null;
         }
+    }
+
+    // ---- Message payload / content-type helpers -----------------------------------------
+    // Shared by the poll, browse, sendRequest, and requestCachedMessages operations so the
+    // JCSMP message-type handling lives in one place.
+
+    /**
+     * Extracts the raw payload bytes from a JCSMP message, handling the Text, XMLContent, and
+     * Bytes message types with a binary-attachment fallback. Never returns null.
+     */
+    public static byte[] extractRawPayload(BytesXMLMessage message) {
+        if (message instanceof TextMessage) {
+            String text = ((TextMessage) message).getText();
+            return text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        } else if (message instanceof XMLContentMessage) {
+            String xml = ((XMLContentMessage) message).getXMLContent();
+            return xml != null ? xml.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        } else if (message instanceof BytesMessage) {
+            byte[] data = ((BytesMessage) message).getData();
+            return data != null ? data : new byte[0];
+        }
+        byte[] data = message.getBytes();
+        return data != null ? data : new byte[0];
+    }
+
+    /**
+     * Infers an HTTP content type for a JCSMP message that carries no explicit HTTP content
+     * type: XML for XMLContent messages, JSON/XML/plain by sniffing Text payloads, and
+     * octet-stream otherwise.
+     */
+    public static String inferContentType(BytesXMLMessage message) {
+        if (message instanceof XMLContentMessage) {
+            return CONTENT_TYPE_XML;
+        }
+        if (message instanceof TextMessage) {
+            String text = ((TextMessage) message).getText();
+            if (text != null) {
+                String trimmed = text.trim();
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    return CONTENT_TYPE_JSON;
+                }
+                if (trimmed.startsWith("<")) {
+                    return CONTENT_TYPE_XML;
+                }
+            }
+            return CONTENT_TYPE_TEXT;
+        }
+        return "application/octet-stream";
+    }
+
+    /**
+     * Returns true if the string looks like a JSON object or array, used to decide whether a
+     * payload can be embedded as-is or must be quoted as a JSON string literal.
+     */
+    public static boolean looksLikeJson(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        String t = s.trim();
+        return t.startsWith("{") || t.startsWith("[");
     }
 
     /**

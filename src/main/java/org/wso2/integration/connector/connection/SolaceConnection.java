@@ -567,7 +567,7 @@ public class SolaceConnection implements Connection {
     public TransactedSession getOrCreateTransactedSession() throws JCSMPException {
         synchronized (txLock) {
             if (txSession == null) {
-                log.info("Creating new transacted session on connection: " + connectionId);
+                log.debug("Creating new transacted session on connection: " + connectionId);
                 // Build into a local first so a producer-create failure can't leave the
                 // connection with txSession set but txProducer null — that state would
                 // poison the connection for every subsequent borrower from the pool.
@@ -576,7 +576,7 @@ public class SolaceConnection implements Connection {
                     ProducerFlowProperties producerProps = new ProducerFlowProperties();
                     txProducer = newSession.createProducer(producerProps, new PublishEventHandler());
                     txSession = newSession;
-                    log.info("Transacted session created on connection: " + connectionId);
+                    log.debug("Transacted session created on connection: " + connectionId);
                 } catch (JCSMPException e) {
                     log.error("Failed to create transacted producer on connection: " + connectionId
                             + " — closing transacted session: " + e.getMessage(), e);
@@ -606,7 +606,7 @@ public class SolaceConnection implements Connection {
                         + connectionId);
                 throw new JCSMPException("No active transaction on connection: " + connectionId);
             }
-            log.info("Committing transacted session on connection: " + connectionId);
+            log.debug("Committing transacted session on connection: " + connectionId);
             try {
                 txSession.commit();
                 log.info("Transaction committed on connection: " + connectionId);
@@ -616,7 +616,7 @@ public class SolaceConnection implements Connection {
                 throw e;
             } finally {
                 closeTransactedSessionInternal();
-                log.info("Transacted session closed on connection: " + connectionId + " (post-commit)");
+                log.debug("Transacted session closed on connection: " + connectionId + " (post-commit)");
             }
         }
     }
@@ -628,7 +628,7 @@ public class SolaceConnection implements Connection {
                         + connectionId);
                 throw new JCSMPException("No active transaction on connection: " + connectionId);
             }
-            log.info("Rolling back transacted session on connection: " + connectionId);
+            log.debug("Rolling back transacted session on connection: " + connectionId);
             try {
                 txSession.rollback();
                 log.warn("Transaction rolled back on connection: " + connectionId);
@@ -638,7 +638,7 @@ public class SolaceConnection implements Connection {
                 throw e;
             } finally {
                 closeTransactedSessionInternal();
-                log.info("Transacted session closed on connection: " + connectionId + " (post-rollback)");
+                log.debug("Transacted session closed on connection: " + connectionId + " (post-rollback)");
             }
         }
     }
@@ -703,7 +703,7 @@ public class SolaceConnection implements Connection {
             // visible in broker-side message-spool browsing for "where did this message go" diagnostics.
             String correlationKey = "tx-" + connectionId + "-" + UUID.randomUUID();
             msg.setCorrelationKey(correlationKey);
-            log.info("publishTransacted: sending to " + destinationType + " '" + destinationName
+            log.debug("publishTransacted: sending to " + destinationType + " '" + destinationName
                     + "' on connectionId=" + connectionId + " (correlationKey=" + correlationKey + ")");
             try {
                 txProducer.send(msg, destination);
@@ -712,7 +712,7 @@ public class SolaceConnection implements Connection {
                         + " (correlationKey=" + correlationKey + "): " + e.getMessage(), e);
                 throw e;
             }
-            log.info("publishTransacted: send returned (pending commit) on connectionId=" + connectionId
+            log.debug("publishTransacted: send returned (pending commit) on connectionId=" + connectionId
                     + " (correlationKey=" + correlationKey + ")");
             return new PublishResult(SolaceConstants.ACK_STATUS_TX_PENDING, false, correlationKey, null);
         }
@@ -760,7 +760,7 @@ public class SolaceConnection implements Connection {
                 EndpointProperties endpointProps = new EndpointProperties();
                 endpointProps.setAccessType(EndpointProperties.ACCESSTYPE_NONEXCLUSIVE);
 
-                log.info("pollTransacted: creating transacted flow for queue '" + queueName
+                log.debug("pollTransacted: creating transacted flow for queue '" + queueName
                         + "' on connectionId=" + connectionId
                         + (normalizedSelector != null ? " (selector='" + normalizedSelector + "')" : ""));
                 // Settlement on a transacted flow is implicit (commit/rollback), so we do NOT

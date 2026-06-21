@@ -35,11 +35,11 @@ public class SolaceBeginTransaction extends AbstractConnector {
     public void connect(MessageContext messageContext) throws ConnectException {
         // Nested begin would orphan the outer tx — its TX_CONNECTION_ID would be
         // overwritten and the outer pinned connection could only be reclaimed by the watchdog.
-        log.info("solace.beginTransaction: invoked");
+        log.debug("solace.beginTransaction: invoked");
         String existingTxId = (String) ((Axis2MessageContext) messageContext).getAxis2MessageContext()
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         if (existingTxId != null) {
-            log.info("solace.beginTransaction: rejected — active transaction already in scope: " + existingTxId);
+            log.error("solace.beginTransaction: rejected — active transaction already in scope: " + existingTxId);
             throw new ConnectException(
                     "solace.beginTransaction called inside an active transaction scope: " + existingTxId);
         }
@@ -58,25 +58,25 @@ public class SolaceBeginTransaction extends AbstractConnector {
             long timeoutMillis = SolaceUtils.parseLongOrDefault(timeoutStr,
                     Long.parseLong(SolaceConstants.DEFAULT_TX_TIMEOUT_MILLIS),
                     SolaceConstants.TX_TIMEOUT_MILLIS);
-            log.info("solace.beginTransaction: connectionName=" + connectionName
+            log.debug("solace.beginTransaction: connectionName=" + connectionName
                     + ", timeoutMillis=" + timeoutMillis);
 
             connection = (SolaceConnection) ConnectionHandler.getConnectionHandler()
                     .getConnection(SolaceConstants.CONNECTOR_NAME, connectionName);
             if (connection == null) {
-                log.info("solace.beginTransaction: connection '" + connectionName + "' not available from pool");
+                log.error("solace.beginTransaction: connection '" + connectionName + "' not available from pool");
                 throw new ConnectException("Solace connection '" + connectionName + "' is not available");
             }
-            log.info("solace.beginTransaction: pinned connection acquired (connectionId="
+            log.debug("solace.beginTransaction: pinned connection acquired (connectionId="
                     + connection.getConnectionId() + ")");
 
             connection.getOrCreateTransactedSession();
-            log.info("solace.beginTransaction: transacted session ready on connectionId="
+            log.debug("solace.beginTransaction: transacted session ready on connectionId="
                     + connection.getConnectionId());
 
             String txId = SolaceTransactionRegistry.register(connection, connectionName, timeoutMillis);
             registered = true;
-            log.info("solace.beginTransaction: registered txId=" + txId + " in TransactionRegistry");
+            log.debug("solace.beginTransaction: registered txId=" + txId + " in TransactionRegistry");
 
             ((Axis2MessageContext) messageContext).getAxis2MessageContext()
                     .setProperty(SolaceConstants.TX_CONNECTION_ID, txId);
@@ -91,7 +91,7 @@ public class SolaceBeginTransaction extends AbstractConnector {
                 try {
                     ConnectionHandler.getConnectionHandler().returnConnection(
                             SolaceConstants.CONNECTOR_NAME, connectionName, connection);
-                    log.info("solace.beginTransaction: returned unregistered connection to pool after failure");
+                    log.error("solace.beginTransaction: returned unregistered connection to pool after failure");
                 } catch (Exception releaseEx) {
                     log.warn("Failed to return Solace connection to pool after failed beginTransaction",
                             releaseEx);

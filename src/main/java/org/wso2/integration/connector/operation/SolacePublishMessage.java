@@ -57,7 +57,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         boolean isTransactional = (txId != null);
         if (isTransactional) {
-            log.info("solace.publishMessage: transactional path, txId=" + txId
+            log.debug("solace.publishMessage: transactional path, txId=" + txId
                     + ", connectionName=" + connectionName);
         }
 
@@ -66,7 +66,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             if (isTransactional) {
                 connection = SolaceTransactionRegistry.get(txId);
                 if (connection == null) {
-                    log.info("solace.publishMessage: txId=" + txId + " not found in TransactionRegistry");
+                    log.error("solace.publishMessage: txId=" + txId + " not found in TransactionRegistry");
                     handleException("Transaction " + txId + " not found", messageContext);
                     return;
                 }
@@ -166,7 +166,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             try {
                 PublishResult result;
                 if (isTransactional) {
-                    log.info("solace.publishMessage: txId=" + txId + " sending transacted message to "
+                    log.debug("solace.publishMessage: txId=" + txId + " sending transacted message to "
                             + destinationType + " '" + destinationName + "' (deliveryMode=" + deliveryMode
                             + ", messageType=" + messageType + ")");
                     result = connection.publishTransacted(destinationType, destinationName, payload,

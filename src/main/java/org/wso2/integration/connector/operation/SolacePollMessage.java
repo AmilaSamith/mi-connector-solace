@@ -86,7 +86,7 @@ public class SolacePollMessage extends AbstractConnectorOperation {
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         boolean isTransactional = (txId != null);
         if (isTransactional) {
-            log.info("solace.poll: transactional path, txId=" + txId
+            log.debug("solace.poll: transactional path, txId=" + txId
                     + ", connectionName=" + connectionName);
         }
 
@@ -95,7 +95,7 @@ public class SolacePollMessage extends AbstractConnectorOperation {
             if (isTransactional) {
                 connection = SolaceTransactionRegistry.get(txId);
                 if (connection == null) {
-                    log.info("solace.poll: txId=" + txId + " not found in TransactionRegistry");
+                    log.error("solace.poll: txId=" + txId + " not found in TransactionRegistry");
                     handleException("Transaction " + txId + " not found", messageContext);
                     return;
                 }

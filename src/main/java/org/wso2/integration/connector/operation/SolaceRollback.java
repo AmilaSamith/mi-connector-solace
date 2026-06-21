@@ -30,21 +30,21 @@ public class SolaceRollback extends AbstractConnector {
 
     @Override
     public void connect(MessageContext messageContext) throws ConnectException {
-        log.info("solace.rollback: invoked");
+        log.debug("solace.rollback: invoked");
         String txId = (String) ((Axis2MessageContext) messageContext).getAxis2MessageContext()
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         if (txId == null) {
-            log.info("solace.rollback: rejected — no transaction in scope");
+            log.error("solace.rollback: rejected — no transaction in scope");
             throw new ConnectException("solace.rollback called outside a transaction scope");
         }
-        log.info("solace.rollback: txId=" + txId + " resolved from message context");
+        log.debug("solace.rollback: txId=" + txId + " resolved from message context");
         SolaceTransactionRegistry.Entry entry = SolaceTransactionRegistry.unregister(txId);
         if (entry == null) {
-            log.info("solace.rollback: txId=" + txId + " not found in registry"
+            log.error("solace.rollback: txId=" + txId + " not found in registry"
                     + " (already committed/rolled back/timed out)");
             throw new ConnectException("Transaction " + txId + " not found (already committed/rolled back/timed out?)");
         }
-        log.info("solace.rollback: txId=" + txId + " unregistered; rolling back on connectionId="
+        log.debug("solace.rollback: txId=" + txId + " unregistered; rolling back on connectionId="
                 + entry.connection.getConnectionId() + " (connectionName=" + entry.connectionName + ")");
         try {
             entry.connection.rollbackTransaction();
@@ -57,7 +57,7 @@ public class SolaceRollback extends AbstractConnector {
                     .removeProperty(SolaceConstants.TX_CONNECTION_ID);
             ConnectionHandler.getConnectionHandler().returnConnection(
                     SolaceConstants.CONNECTOR_NAME, entry.connectionName, entry.connection);
-            log.info("solace.rollback: txId=" + txId + " connection returned to pool");
+            log.debug("solace.rollback: txId=" + txId + " connection returned to pool");
         }
     }
 }

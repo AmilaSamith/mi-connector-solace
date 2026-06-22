@@ -66,8 +66,8 @@ public final class SolaceUtils {
     // to a sensible value (a caller-provided default, or skipping an optional setting).
 
     /**
-     * Parses a long, returning {@code defaultValue} (with a WARN) when {@code value} is empty
-     * or not a valid number.
+     * Parses a long, returning {@code defaultValue} when {@code value} is empty, and returning
+     * {@code defaultValue} (with a WARN) when {@code value} is not a valid number.
      */
     public static long parseLongOrDefault(String value, long defaultValue, String paramName) {
         Long parsed = tryParseLong(value, paramName);
@@ -75,8 +75,8 @@ public final class SolaceUtils {
     }
 
     /**
-     * Parses an int, returning {@code defaultValue} (with a WARN) when {@code value} is empty
-     * or not a valid number.
+     * Parses an int, returning {@code defaultValue} when {@code value} is empty, and returning
+     * {@code defaultValue} (with a WARN) when {@code value} is not a valid number.
      */
     public static int parseIntOrDefault(String value, int defaultValue, String paramName) {
         Integer parsed = tryParseInt(value, paramName);

@@ -18,6 +18,7 @@
 
 package org.wso2.integration.connector.utils;
 
+import com.solacesystems.jcsmp.BytesMessage;
 import com.solacesystems.jcsmp.BytesXMLMessage;
 import com.solacesystems.jcsmp.Destination;
 import com.solacesystems.jcsmp.JCSMPChannelProperties;
@@ -25,6 +26,8 @@ import com.solacesystems.jcsmp.JCSMPProperties;
 import com.solacesystems.jcsmp.Queue;
 import com.solacesystems.jcsmp.SDTException;
 import com.solacesystems.jcsmp.SDTMap;
+import com.solacesystems.jcsmp.TextMessage;
+import com.solacesystems.jcsmp.XMLContentMessage;
 
 import org.apache.axiom.om.OMElement;
 import org.apache.commons.lang.StringUtils;
@@ -37,6 +40,7 @@ import org.wso2.integration.connector.constants.SolaceConstants;
 import org.wso2.integration.connector.core.util.ConnectorUtils;
 import org.wso2.integration.connector.models.SolaceMessageProperties;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +58,121 @@ public final class SolaceUtils {
 
     private SolaceUtils() {
         // Prevent instantiation
+    }
+
+    // ---- Safe numeric parsing -----------------------------------------------------------
+    // User-supplied parameters arrive as strings. A malformed value must not crash the whole
+    // operation with an uncaught NumberFormatException — instead we log a WARN and fall back
+    // to a sensible value (a caller-provided default, or skipping an optional setting).
+
+    /**
+     * Parses a long, returning {@code defaultValue} when {@code value} is empty, and returning
+     * {@code defaultValue} (with a WARN) when {@code value} is not a valid number.
+     */
+    public static long parseLongOrDefault(String value, long defaultValue, String paramName) {
+        Long parsed = tryParseLong(value, paramName);
+        return parsed != null ? parsed : defaultValue;
+    }
+
+    /**
+     * Parses an int, returning {@code defaultValue} when {@code value} is empty, and returning
+     * {@code defaultValue} (with a WARN) when {@code value} is not a valid number.
+     */
+    public static int parseIntOrDefault(String value, int defaultValue, String paramName) {
+        Integer parsed = tryParseInt(value, paramName);
+        return parsed != null ? parsed : defaultValue;
+    }
+
+    /**
+     * Parses a long, or returns {@code null} (with a WARN on malformed input) so the caller can
+     * skip an optional setting rather than fail.
+     */
+    private static Long tryParseLong(String value, String paramName) {
+        if (StringUtils.isEmpty(value)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Ignoring invalid numeric value '" + value + "' for parameter '" + paramName + "'.");
+            return null;
+        }
+    }
+
+    /**
+     * Parses an int, or returns {@code null} (with a WARN on malformed input) so the caller can
+     * skip an optional setting rather than fail.
+     */
+    private static Integer tryParseInt(String value, String paramName) {
+        if (StringUtils.isEmpty(value)) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Ignoring invalid numeric value '" + value + "' for parameter '" + paramName + "'.");
+            return null;
+        }
+    }
+
+    // ---- Message payload / content-type helpers -----------------------------------------
+    // Shared by the poll, browse, sendRequest, and requestCachedMessages operations so the
+    // JCSMP message-type handling lives in one place.
+
+    /**
+     * Extracts the raw payload bytes from a JCSMP message, handling the Text, XMLContent, and
+     * Bytes message types with a binary-attachment fallback. Never returns null.
+     */
+    public static byte[] extractRawPayload(BytesXMLMessage message) {
+        if (message instanceof TextMessage) {
+            String text = ((TextMessage) message).getText();
+            return text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        } else if (message instanceof XMLContentMessage) {
+            String xml = ((XMLContentMessage) message).getXMLContent();
+            return xml != null ? xml.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        } else if (message instanceof BytesMessage) {
+            byte[] data = ((BytesMessage) message).getData();
+            return data != null ? data : new byte[0];
+        }
+        byte[] data = message.getBytes();
+        return data != null ? data : new byte[0];
+    }
+
+    /**
+     * Infers an HTTP content type for a JCSMP message that carries no explicit HTTP content
+     * type: XML for XMLContent messages, JSON/XML/plain by sniffing Text payloads, and
+     * octet-stream otherwise.
+     */
+    public static String inferContentType(BytesXMLMessage message) {
+        if (message instanceof XMLContentMessage) {
+            return CONTENT_TYPE_XML;
+        }
+        if (message instanceof TextMessage) {
+            String text = ((TextMessage) message).getText();
+            if (text != null) {
+                String trimmed = text.trim();
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    return CONTENT_TYPE_JSON;
+                }
+                if (trimmed.startsWith("<")) {
+                    return CONTENT_TYPE_XML;
+                }
+            }
+            return CONTENT_TYPE_TEXT;
+        }
+        return "application/octet-stream";
+    }
+
+    /**
+     * Returns true if the string looks like a JSON object or array, used to decide whether a
+     * payload can be embedded as-is or must be quoted as a JSON string literal.
+     */
+    public static boolean looksLikeJson(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        String t = s.trim();
+        return t.startsWith("{") || t.startsWith("[");
     }
 
     /**
@@ -169,15 +288,17 @@ public final class SolaceUtils {
 
         String priority = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.PRIORITY);
-        if (StringUtils.isNotEmpty(priority)) {
-            properties.setPriority(Integer.parseInt(priority));
+        Integer priorityValue = tryParseInt(priority, SolaceConstants.PRIORITY);
+        if (priorityValue != null) {
+            properties.setPriority(priorityValue);
             hasProperties = true;
         }
 
         String timeToLive = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.TIME_TO_LIVE);
-        if (StringUtils.isNotEmpty(timeToLive)) {
-            properties.setTimeToLive(Long.parseLong(timeToLive));
+        Long timeToLiveValue = tryParseLong(timeToLive, SolaceConstants.TIME_TO_LIVE);
+        if (timeToLiveValue != null) {
+            properties.setTimeToLive(timeToLiveValue);
             hasProperties = true;
         }
 
@@ -249,8 +370,9 @@ public final class SolaceUtils {
 
         String expiration = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.EXPIRATION);
-        if (StringUtils.isNotEmpty(expiration)) {
-            properties.setExpiration(Long.parseLong(expiration));
+        Long expirationValue = tryParseLong(expiration, SolaceConstants.EXPIRATION);
+        if (expirationValue != null) {
+            properties.setExpiration(expirationValue);
             hasProperties = true;
         }
 
@@ -418,21 +540,24 @@ public final class SolaceUtils {
         // Timeouts
         String connectionTimeout = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.CONNECTION_TIMEOUT);
-        if (StringUtils.isNotEmpty(connectionTimeout)) {
-            channelProps.setConnectTimeoutInMillis(Integer.parseInt(connectionTimeout));
+        Integer connectionTimeoutValue = tryParseInt(connectionTimeout, SolaceConstants.CONNECTION_TIMEOUT);
+        if (connectionTimeoutValue != null) {
+            channelProps.setConnectTimeoutInMillis(connectionTimeoutValue);
         }
 
         String readTimeout = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.READ_TIMEOUT);
-        if (StringUtils.isNotEmpty(readTimeout)) {
-            channelProps.setReadTimeoutInMillis(Integer.parseInt(readTimeout));
+        Integer readTimeoutValue = tryParseInt(readTimeout, SolaceConstants.READ_TIMEOUT);
+        if (readTimeoutValue != null) {
+            channelProps.setReadTimeoutInMillis(readTimeoutValue);
         }
 
         // Compression
         String compressionLevel = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.COMPRESSION_LEVEL);
-        if (StringUtils.isNotEmpty(compressionLevel)) {
-            channelProps.setCompressionLevel(Integer.parseInt(compressionLevel));
+        Integer compressionLevelValue = tryParseInt(compressionLevel, SolaceConstants.COMPRESSION_LEVEL);
+        if (compressionLevelValue != null) {
+            channelProps.setCompressionLevel(compressionLevelValue);
         }
 
         // Timestamps and sequence numbers
@@ -467,26 +592,31 @@ public final class SolaceUtils {
         // Connection retry settings
         String connectRetries = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.CONNECT_RETRIES);
-        if (StringUtils.isNotEmpty(connectRetries)) {
-            channelProps.setConnectRetries(Integer.parseInt(connectRetries));
+        Integer connectRetriesValue = tryParseInt(connectRetries, SolaceConstants.CONNECT_RETRIES);
+        if (connectRetriesValue != null) {
+            channelProps.setConnectRetries(connectRetriesValue);
         }
 
         String connectRetriesPerHost = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.CONNECT_RETRIES_PER_HOST);
-        if (StringUtils.isNotEmpty(connectRetriesPerHost)) {
-            channelProps.setConnectRetriesPerHost(Integer.parseInt(connectRetriesPerHost));
+        Integer connectRetriesPerHostValue = tryParseInt(connectRetriesPerHost,
+                SolaceConstants.CONNECT_RETRIES_PER_HOST);
+        if (connectRetriesPerHostValue != null) {
+            channelProps.setConnectRetriesPerHost(connectRetriesPerHostValue);
         }
 
         String reconnectRetries = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.RECONNECT_RETRIES);
-        if (StringUtils.isNotEmpty(reconnectRetries)) {
-            channelProps.setReconnectRetries(Integer.parseInt(reconnectRetries));
+        Integer reconnectRetriesValue = tryParseInt(reconnectRetries, SolaceConstants.RECONNECT_RETRIES);
+        if (reconnectRetriesValue != null) {
+            channelProps.setReconnectRetries(reconnectRetriesValue);
         }
 
         String reconnectRetryWait = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.RECONNECT_RETRY_WAIT);
-        if (StringUtils.isNotEmpty(reconnectRetryWait)) {
-            channelProps.setReconnectRetryWaitInMillis(Integer.parseInt(reconnectRetryWait));
+        Integer reconnectRetryWaitValue = tryParseInt(reconnectRetryWait, SolaceConstants.RECONNECT_RETRY_WAIT);
+        if (reconnectRetryWaitValue != null) {
+            channelProps.setReconnectRetryWaitInMillis(reconnectRetryWaitValue);
         }
 
         // SSL/TLS properties
@@ -587,8 +717,14 @@ public final class SolaceUtils {
         String sslValidateCertificate = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.SSL_VALIDATE_CERTIFICATE);
         if (StringUtils.isNotEmpty(sslValidateCertificate)) {
-            properties.setBooleanProperty(JCSMPProperties.SSL_VALIDATE_CERTIFICATE,
-                    Boolean.parseBoolean(sslValidateCertificate));
+            boolean validateCertificate = Boolean.parseBoolean(sslValidateCertificate);
+            if (!validateCertificate) {
+                log.warn("Solace connection: server certificate validation is DISABLED "
+                        + "(sslValidateCertificate=false). The broker's TLS certificate will not be "
+                        + "verified, exposing the connection to man-in-the-middle attacks. Do not use "
+                        + "this setting in production.");
+            }
+            properties.setBooleanProperty(JCSMPProperties.SSL_VALIDATE_CERTIFICATE, validateCertificate);
         }
 
         String sslValidateCertificateDate = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
@@ -608,9 +744,9 @@ public final class SolaceUtils {
         // Publisher acknowledgement window size for guaranteed messaging throughput
         String pubAckWindowSize = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                 SolaceConstants.PUB_ACK_WINDOW_SIZE);
-        if (StringUtils.isNotEmpty(pubAckWindowSize)) {
-            properties.setProperty(JCSMPProperties.PUB_ACK_WINDOW_SIZE,
-                    Integer.parseInt(pubAckWindowSize));
+        Integer pubAckWindowSizeValue = tryParseInt(pubAckWindowSize, SolaceConstants.PUB_ACK_WINDOW_SIZE);
+        if (pubAckWindowSizeValue != null) {
+            properties.setProperty(JCSMPProperties.PUB_ACK_WINDOW_SIZE, pubAckWindowSizeValue);
         }
 
         return properties;

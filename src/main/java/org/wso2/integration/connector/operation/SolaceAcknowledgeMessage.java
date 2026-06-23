@@ -77,7 +77,11 @@ public class SolaceAcknowledgeMessage extends AbstractConnectorOperation {
             attributes.put("settled", true);
             attributes.put("outcome", "ACK");
 
-            handleConnectorResponse(messageContext, responseVariable, overwriteBody,
+            // Side-effect operation: ackMessage() returns void, so this is a synthesized
+            // status envelope, not broker data. Never overwrite the message body with it —
+            // the original payload must keep flowing downstream. (overwriteBody is hidden
+            // in the UI for this reason.)
+            handleConnectorResponse(messageContext, responseVariable, false,
                     response.toString(), null, attributes);
         } catch (Exception e) {
             handleException("Error acknowledging Solace message: " + e.getMessage(), e, messageContext);

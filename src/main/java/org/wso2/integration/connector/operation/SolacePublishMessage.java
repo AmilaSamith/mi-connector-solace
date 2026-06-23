@@ -57,7 +57,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         boolean isTransactional = (txId != null);
         if (isTransactional) {
-            log.info("solace.publishMessage: transactional path, txId=" + txId
+            log.debug("solace.publishMessage: transactional path, txId=" + txId
                     + ", connectionName=" + connectionName);
         }
 
@@ -66,7 +66,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             if (isTransactional) {
                 connection = SolaceTransactionRegistry.get(txId);
                 if (connection == null) {
-                    log.info("solace.publishMessage: txId=" + txId + " not found in TransactionRegistry");
+                    log.error("solace.publishMessage: txId=" + txId + " not found in TransactionRegistry");
                     handleException("Transaction " + txId + " not found", messageContext);
                     return;
                 }
@@ -151,9 +151,8 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             boolean waitForAck = StringUtils.isNotEmpty(waitForAckStr) && Boolean.parseBoolean(waitForAckStr);
             String ackTimeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.ACK_TIMEOUT);
-            long ackTimeout = StringUtils.isNotEmpty(ackTimeoutStr)
-                    ? Long.parseLong(ackTimeoutStr)
-                    : SolaceConstants.DEFAULT_ACK_TIMEOUT_MS;
+            long ackTimeout = SolaceUtils.parseLongOrDefault(ackTimeoutStr,
+                    SolaceConstants.DEFAULT_ACK_TIMEOUT_MS, SolaceConstants.ACK_TIMEOUT);
             String continueOnAckFailureStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CONTINUE_ON_ACK_FAILURE);
             boolean continueOnAckFailure = StringUtils.isNotEmpty(continueOnAckFailureStr)
@@ -167,7 +166,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             try {
                 PublishResult result;
                 if (isTransactional) {
-                    log.info("solace.publishMessage: txId=" + txId + " sending transacted message to "
+                    log.debug("solace.publishMessage: txId=" + txId + " sending transacted message to "
                             + destinationType + " '" + destinationName + "' (deliveryMode=" + deliveryMode
                             + ", messageType=" + messageType + ")");
                     result = connection.publishTransacted(destinationType, destinationName, payload,
@@ -180,12 +179,14 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
                 }
 
                 if (log.isDebugEnabled()) {
-                    log.debug("Message '" + payload + "' published to " + destinationType + " '" + destinationName
-                            + "' with delivery mode: " + deliveryMode + ", ackStatus=" + result.getAckStatus());
+                    log.debug("Message published to " + destinationType + " '" + destinationName
+                            + "' (deliveryMode=" + deliveryMode + ", payloadLength="
+                            + (payload != null ? payload.length() : 0)
+                            + ", ackStatus=" + result.getAckStatus() + ")");
                 }
 
                 setResultInContext(messageContext, result, destinationType, destinationName, deliveryMode,
-                        messageType, responseVariable, overwriteBody);
+                        messageType, responseVariable);
 
                 if (!isTransactional && !result.isAckReceived() && waitForAck && !continueOnAckFailure
                         && (SolaceConstants.ACK_STATUS_NACK.equals(result.getAckStatus())
@@ -211,7 +212,7 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
 
     private void setResultInContext(MessageContext messageContext, PublishResult result,
                                     String destinationType, String destinationName, String deliveryMode,
-                                    String messageType, String responseVariable, Boolean overwriteBody) {
+                                    String messageType, String responseVariable) {
         // Legacy solace.* context properties — kept for callers that read them directly.
         messageContext.setProperty(SolaceConstants.SOLACE_DESTINATION, destinationName);
         messageContext.setProperty(SolaceConstants.SOLACE_DELIVERY_MODE, deliveryMode);
@@ -224,25 +225,14 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             messageContext.setProperty(SolaceConstants.SOLACE_ACK_ERROR, result.getError());
         }
 
-        // Build the full publish-result envelope and route it through the framework helper
-        // so ${vars.X} resolves and overwriteBody behaves like other connectors.
-        JSONObject response = new JSONObject();
-        response.put("destination", destinationName);
-        response.put("destinationType", destinationType);
-        response.put("deliveryMode", deliveryMode);
-        response.put("messageType", messageType);
-        response.put("ackStatus", result.getAckStatus());
-        response.put("ackReceived", result.isAckReceived());
-        response.put("correlationKey", result.getCorrelationKey() != null ? result.getCorrelationKey() : JSONObject.NULL);
-        response.put("error", result.getError() != null ? result.getError() : JSONObject.NULL);
-        response.put("publishedAt", System.currentTimeMillis());
-
+        // Set the publish-result fields.
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("destination", destinationName);
         attributes.put("destinationType", destinationType);
         attributes.put("deliveryMode", deliveryMode);
         attributes.put("ackStatus", result.getAckStatus());
         attributes.put("ackReceived", result.isAckReceived());
+        // correlationKey is only set for guaranteed sends and error only on failure.
         if (result.getCorrelationKey() != null) {
             attributes.put("correlationKey", result.getCorrelationKey());
         }
@@ -250,7 +240,15 @@ public class SolacePublishMessage extends AbstractConnectorOperation {
             attributes.put("error", result.getError());
         }
 
-        handleConnectorResponse(messageContext, responseVariable, overwriteBody,
+        JSONObject response = new JSONObject(attributes);
+        response.put("messageType", messageType);
+        response.put("publishedAt", System.currentTimeMillis());
+
+        // Side-effect operation: a Solace publish returns no payload, only this synthesized
+        // result envelope (ack status etc.). Never overwrite the message body with it — the
+        // original payload must keep flowing downstream. (overwriteBody is hidden in the UI
+        // for this reason.)
+        handleConnectorResponse(messageContext, responseVariable, false,
                 response.toString(), null, attributes);
     }
 }

@@ -30,21 +30,21 @@ public class SolaceCommit extends AbstractConnector {
 
     @Override
     public void connect(MessageContext messageContext) throws ConnectException {
-        log.info("solace.commit: invoked");
+        log.debug("solace.commit: invoked");
         String txId = (String) ((Axis2MessageContext) messageContext).getAxis2MessageContext()
                 .getProperty(SolaceConstants.TX_CONNECTION_ID);
         if (txId == null) {
-            log.info("solace.commit: rejected — no transaction in scope");
+            log.error("solace.commit: rejected — no transaction in scope");
             throw new ConnectException("solace.commit called outside a transaction scope");
         }
-        log.info("solace.commit: txId=" + txId + " resolved from message context");
+        log.debug("solace.commit: txId=" + txId + " resolved from message context");
         SolaceTransactionRegistry.Entry entry = SolaceTransactionRegistry.unregister(txId);
         if (entry == null) {
-            log.info("solace.commit: txId=" + txId + " not found in registry"
+            log.error("solace.commit: txId=" + txId + " not found in registry"
                     + " (already committed/rolled back/timed out)");
             throw new ConnectException("Transaction " + txId + " not found (already committed/rolled back/timed out?)");
         }
-        log.info("solace.commit: txId=" + txId + " unregistered; committing on connectionId="
+        log.debug("solace.commit: txId=" + txId + " unregistered; committing on connectionId="
                 + entry.connection.getConnectionId() + " (connectionName=" + entry.connectionName + ")");
         try {
             entry.connection.commitTransaction();
@@ -60,7 +60,7 @@ public class SolaceCommit extends AbstractConnector {
                     .removeProperty(SolaceConstants.TX_CONNECTION_ID);
             ConnectionHandler.getConnectionHandler().returnConnection(
                     SolaceConstants.CONNECTOR_NAME, entry.connectionName, entry.connection);
-            log.info("solace.commit: txId=" + txId + " connection returned to pool");
+            log.debug("solace.commit: txId=" + txId + " connection returned to pool");
         }
     }
 }

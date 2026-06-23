@@ -18,11 +18,8 @@
 
 package org.wso2.integration.connector.operation;
 
-import com.solacesystems.jcsmp.BytesMessage;
 import com.solacesystems.jcsmp.BytesXMLMessage;
 import com.solacesystems.jcsmp.JCSMPException;
-import com.solacesystems.jcsmp.TextMessage;
-import com.solacesystems.jcsmp.XMLContentMessage;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
@@ -35,6 +32,7 @@ import org.wso2.integration.connector.constants.SolaceConstants;
 import org.wso2.integration.connector.core.AbstractConnectorOperation;
 import org.wso2.integration.connector.core.connection.ConnectionHandler;
 import org.wso2.integration.connector.core.util.ConnectorUtils;
+import org.wso2.integration.connector.utils.SolaceUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -42,7 +40,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Issues a Solace Cache request to retrieve historical messages cached for a topic.
+ * DISABLED / NOT YET RELEASED: this operation is intentionally hidden from the
+ * connector's operation palette — its component is left unregistered in
+ * consume/component.xml. The class and its resource files are retained in place and
+ * will be released once the operation has been tested end-to-end against a real
+ * PubSub+ Cache instance.
+ *
+ * <p>Issues a Solace Cache request to retrieve historical messages cached for a topic.
  *
  * <p><b>Prerequisites — this operation only succeeds when the broker side is set up:</b></p>
  * <ul>
@@ -100,19 +104,17 @@ public class SolaceRequestCachedMessages extends AbstractConnectorOperation {
 
             String maxMessagesStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_MAX_MESSAGES);
-            long maxMessages = StringUtils.isNotEmpty(maxMessagesStr)
-                    ? Long.parseLong(maxMessagesStr)
-                    : SolaceConstants.DEFAULT_CACHE_MAX_MESSAGES;
+            long maxMessages = SolaceUtils.parseLongOrDefault(maxMessagesStr,
+                    SolaceConstants.DEFAULT_CACHE_MAX_MESSAGES, SolaceConstants.CACHE_MAX_MESSAGES);
 
             String maxAgeStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_MAX_AGE_SECONDS);
-            int maxAge = StringUtils.isNotEmpty(maxAgeStr) ? Integer.parseInt(maxAgeStr) : 0;
+            int maxAge = SolaceUtils.parseIntOrDefault(maxAgeStr, 0, SolaceConstants.CACHE_MAX_AGE_SECONDS);
 
             String requestTimeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_REQUEST_TIMEOUT);
-            long requestTimeout = StringUtils.isNotEmpty(requestTimeoutStr)
-                    ? Long.parseLong(requestTimeoutStr)
-                    : SolaceConstants.DEFAULT_CACHE_REQUEST_TIMEOUT_MS;
+            long requestTimeout = SolaceUtils.parseLongOrDefault(requestTimeoutStr,
+                    SolaceConstants.DEFAULT_CACHE_REQUEST_TIMEOUT_MS, SolaceConstants.CACHE_REQUEST_TIMEOUT);
 
             String liveDataAction = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.CACHE_LIVE_DATA_ACTION);
@@ -155,6 +157,11 @@ public class SolaceRequestCachedMessages extends AbstractConnectorOperation {
                     + ". Verify that (1) a PubSub+ Cache Instance exists for this VPN,"
                     + " (2) it caches the requested topic pattern, and (3) the cache instance"
                     + " name matches the broker configuration.", e, messageContext);
+        } catch (IllegalArgumentException e) {
+            // Invalid parameter combination caught before the broker call — most commonly a
+            // wildcard topic paired with a non-FLOW_THRU live data action. Surface the
+            // specific reason rather than the generic "operation failed" message.
+            handleException("Solace cache request rejected: " + e.getMessage(), e, messageContext);
         } catch (Exception e) {
             handleException("Solace cache request operation failed (connection: " + connectionName + ")",
                     e, messageContext);
@@ -184,48 +191,13 @@ public class SolaceRequestCachedMessages extends AbstractConnectorOperation {
         }
         summary.put("cacheRequest", message.isCacheMessage());
 
-        byte[] bytes = extractRawPayload(message);
+        byte[] bytes = SolaceUtils.extractRawPayload(message);
         summary.put("payload", new String(bytes, StandardCharsets.UTF_8));
         String contentType = message.getHTTPContentType();
         if (StringUtils.isEmpty(contentType)) {
-            contentType = inferContentType(message);
+            contentType = SolaceUtils.inferContentType(message);
         }
         summary.put("contentType", contentType);
         return summary;
-    }
-
-    private byte[] extractRawPayload(BytesXMLMessage message) {
-        if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            return text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof XMLContentMessage) {
-            String xml = ((XMLContentMessage) message).getXMLContent();
-            return xml != null ? xml.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof BytesMessage) {
-            byte[] data = ((BytesMessage) message).getData();
-            return data != null ? data : new byte[0];
-        }
-        byte[] data = message.getBytes();
-        return data != null ? data : new byte[0];
-    }
-
-    private String inferContentType(BytesXMLMessage message) {
-        if (message instanceof XMLContentMessage) {
-            return "application/xml";
-        }
-        if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            if (text != null) {
-                String trimmed = text.trim();
-                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-                    return "application/json";
-                }
-                if (trimmed.startsWith("<")) {
-                    return "application/xml";
-                }
-            }
-            return "text/plain";
-        }
-        return "application/octet-stream";
     }
 }

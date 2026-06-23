@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Poll Operation",
+  "description": "Output schema for the Solace poll operation.",
+  "properties": {
+    "payload": {
+      "type": ["object", "array", "string", "number", "boolean", "null"],
+      "description": "On a successful poll, the polled message content (JSON replies are parsed into an object or array; non-JSON content is surfaced as a string). On timeout, a JSON envelope of the form {\"received\": false, \"timedOut\": true, \"destination\": \"<queue>\"}. Inspect attributes.received / attributes.timedOut before dereferencing.",
+      "additionalProperties": true
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the poll operation and, when a message was received, the polled message.",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "The name of the queue that was polled."
+        },
+        "received": {
+          "type": "boolean",
+          "description": "Whether a message was received before the poll timed out."
+        },
+        "timedOut": {
+          "type": "boolean",
+          "description": "Whether the poll timed out without receiving a message."
+        },
+        "contentType": {
+          "type": "string",
+          "description": "The content type of the polled message payload (e.g., application/json, application/xml, text/plain). Present only when a message was received."
+        },
+        "messageId": {
+          "type": "string",
+          "description": "The broker-assigned message id."
+        },
+        "correlationId": {
+          "type": "string",
+          "description": "The correlation id of the message."
+        },
+        "applicationMessageId": {
+          "type": "string",
+          "description": "The application-defined message id."
+        },
+        "applicationMessageType": {
+          "type": "string",
+          "description": "The application-defined message type."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "The sender id of the message."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode of the message (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "The message priority (0-255)."
+        },
+        "redelivered": {
+          "type": "boolean",
+          "description": "Whether the message was flagged as redelivered by the broker."
+        },
+        "dmqEligible": {
+          "type": "boolean",
+          "description": "Whether the message is eligible for the Dead Message Queue."
+        },
+        "elidingEligible": {
+          "type": "boolean",
+          "description": "Whether the message is eligible for eliding."
+        },
+        "expiration": {
+          "type": "integer",
+          "description": "Absolute message expiration time as a UTC epoch in milliseconds. Present only when non-zero."
+        },
+        "timeToLive": {
+          "type": "integer",
+          "description": "Time to live in milliseconds. Present only when non-zero."
+        },
+        "senderTimestamp": {
+          "type": "integer",
+          "description": "Sender-supplied timestamp as a UTC epoch in milliseconds. Present only when set."
+        },
+        "receiveTimestamp": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the message was received. Present only when non-zero."
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "description": "The publisher-assigned sequence number. Present only when set."
+        },
+        "replyTo": {
+          "type": "object",
+          "description": "The reply-to destination of the message, when present.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The reply-to destination name."
+            },
+            "type": {
+              "type": "string",
+              "description": "The reply-to destination type (TOPIC or QUEUE)."
+            }
+          },
+          "additionalProperties": false
+        },
+        "userProperties": {
+          "type": "object",
+          "description": "Publisher-supplied user properties carried on the message, for content-based routing and filtering.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "destination",
+        "received",
+        "timedOut"
+      ],
+      "additionalProperties": true
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

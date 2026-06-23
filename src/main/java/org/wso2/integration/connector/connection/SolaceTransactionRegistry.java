@@ -80,7 +80,7 @@ public final class SolaceTransactionRegistry {
     public static SolaceConnection get(String txId) {
         Entry e = entries.get(txId);
         if (e == null) {
-            log.info("TransactionRegistry: lookup miss for txId=" + txId
+            log.debug("TransactionRegistry: lookup miss for txId=" + txId
                     + " (activeCount=" + entries.size() + ")");
             return null;
         }
@@ -91,11 +91,11 @@ public final class SolaceTransactionRegistry {
         Entry e = entries.remove(txId);
         if (e != null && e.timeoutFuture != null) {
             e.timeoutFuture.cancel(false);
-            log.info("TransactionRegistry: unregistered txId=" + txId
+            log.debug("TransactionRegistry: unregistered txId=" + txId
                     + " (connectionName=" + e.connectionName + ", activeCount=" + entries.size() + ")");
             return e;
         }
-        log.info("TransactionRegistry: unregister miss for txId=" + txId
+        log.debug("TransactionRegistry: unregister miss for txId=" + txId
                 + " (activeCount=" + entries.size() + ")");
         return null;
     }
@@ -132,7 +132,7 @@ public final class SolaceTransactionRegistry {
             try {
                 ConnectionHandler.getConnectionHandler().returnConnection(
                         SolaceConstants.CONNECTOR_NAME, e.connectionName, e.connection);
-                log.info("TransactionRegistry: returned connection to pool after auto-rollback for txId="
+                log.debug("TransactionRegistry: returned connection to pool after auto-rollback for txId="
                         + txId);
             } catch (Exception ex) {
                 log.error("Failed to return Solace connection to pool after auto-rollback for tx "

@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Browse Operation",
+  "description": "Output schema for the Solace browse operation.",
+  "properties": {
+    "payload": {
+      "type": "array",
+      "description": "The list of browsed message summaries. The queue is left undisturbed — messages are not consumed.",
+      "items": {
+        "type": "object",
+        "description": "A summary of a single browsed message.",
+        "properties": {
+          "destination": {
+            "type": "string",
+            "description": "The name of the destination the message was published to."
+          },
+          "payload": {
+            "type": "string",
+            "description": "The message body as a UTF-8 string. Inspect contentType to determine how to interpret it."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "The content type of the message payload (e.g., application/json, application/xml, text/plain)."
+          },
+          "messageId": {
+            "type": "string",
+            "description": "The broker-assigned message id."
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "The correlation id of the message."
+          },
+          "applicationMessageId": {
+            "type": "string",
+            "description": "The application-defined message id."
+          },
+          "applicationMessageType": {
+            "type": "string",
+            "description": "The application-defined message type."
+          },
+          "senderId": {
+            "type": "string",
+            "description": "The sender id of the message."
+          },
+          "deliveryMode": {
+            "type": "string",
+            "description": "The delivery mode of the message (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+          },
+          "priority": {
+            "type": "integer",
+            "description": "The message priority (0-255)."
+          },
+          "redelivered": {
+            "type": "boolean",
+            "description": "Whether the message was flagged as redelivered by the broker."
+          },
+          "dmqEligible": {
+            "type": "boolean",
+            "description": "Whether the message is eligible for the Dead Message Queue."
+          },
+          "elidingEligible": {
+            "type": "boolean",
+            "description": "Whether the message is eligible for eliding."
+          },
+          "expiration": {
+            "type": "integer",
+            "description": "Absolute message expiration time as a UTC epoch in milliseconds. Present only when non-zero."
+          },
+          "timeToLive": {
+            "type": "integer",
+            "description": "Time to live in milliseconds. Present only when non-zero."
+          },
+          "senderTimestamp": {
+            "type": "integer",
+            "description": "Sender-supplied timestamp as a UTC epoch in milliseconds. Present only when set."
+          },
+          "receiveTimestamp": {
+            "type": "integer",
+            "description": "Epoch timestamp in milliseconds when the message was received. Present only when non-zero."
+          },
+          "sequenceNumber": {
+            "type": "integer",
+            "description": "The publisher-assigned sequence number. Present only when set."
+          },
+          "replyTo": {
+            "type": "object",
+            "description": "The reply-to destination of the message, when present.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The reply-to destination name."
+              },
+              "type": {
+                "type": "string",
+                "description": "The reply-to destination type (TOPIC or QUEUE)."
+              }
+            },
+            "additionalProperties": false
+          },
+          "userProperties": {
+            "type": "object",
+            "description": "Publisher-supplied user properties carried on the message.",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "payload",
+          "contentType"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the browse operation.",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "The name of the queue that was browsed."
+        },
+        "messageCount": {
+          "type": "integer",
+          "description": "The number of messages returned by the browse."
+        }
+      },
+      "required": [
+        "destination",
+        "messageCount"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

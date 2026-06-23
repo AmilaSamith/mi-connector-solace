@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2026, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+   Copyright (c) 2026, WSO2 LLC. (http://www.wso2.org) All Rights Reserved.
 
-   WSO2 Inc. licenses this file to you under the Apache License,
+   WSO2 LLC. licenses this file to you under the Apache License,
    Version 2.0 (the "License"); you may not use this file except
    in compliance with the License.
    You may obtain a copy of the License at
@@ -33,6 +33,16 @@
             <excludes>
                 <exclude>**/metrics_module.xml</exclude>
                 <exclude>**/META-INF/*</exclude>
+                <!-- requestCachedMessages is hidden / not yet released: keep its source files
+                     in place but exclude them from the packaged connector so the operation
+                     does not appear in the MI operation palette. The MI tooling builds the
+                     palette from these resource files, not from consume/component.xml, so
+                     excluding them here is what actually hides the operation. To release:
+                     remove these three excludes and re-register the component in
+                     consume/component.xml. -->
+                <exclude>uischema/requestCachedMessages.json</exclude>
+                <exclude>outputschema/requestCachedMessages.json</exclude>
+                <exclude>consume/requestCachedMessages.xml</exclude>
             </excludes>
         </fileSet>
     </fileSets>

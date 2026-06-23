@@ -57,8 +57,58 @@
         "publishedAt"
       ],
       "additionalProperties": false
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the publishMessage operation.",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "The name of the topic or queue the message was published to."
+        },
+        "destinationType": {
+          "type": "string",
+          "description": "The type of destination the message was published to (e.g., TOPIC, QUEUE)."
+        },
+        "deliveryMode": {
+          "type": "string",
+          "description": "The delivery mode used for the publish (e.g., DIRECT, PERSISTENT, NON_PERSISTENT)."
+        },
+        "ackStatus": {
+          "type": "string",
+          "description": "The broker acknowledgement status for the publish (e.g., ACK, NACK, TIMEOUT)."
+        },
+        "ackReceived": {
+          "type": "boolean",
+          "description": "Whether a broker acknowledgement was received for the published message."
+        },
+        "correlationKey": {
+          "type": "string",
+          "description": "The correlation key associated with the publish. Present only for guaranteed (PERSISTENT/NON_PERSISTENT) sends."
+        },
+        "error": {
+          "type": "string",
+          "description": "Error detail when the publish was not acknowledged. Present only on failure."
+        }
+      },
+      "required": [
+        "destination",
+        "destinationType",
+        "deliveryMode",
+        "ackStatus",
+        "ackReceived"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
     }
   },
-  "required": ["payload"],
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
   "additionalProperties": false
 }

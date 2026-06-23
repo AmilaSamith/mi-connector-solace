@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Output Schema for Acknowledge Message Operation",
+  "description": "Output schema for the Solace acknowledgeMessage operation.",
+  "properties": {
+    "payload": {
+      "type": "object",
+      "description": "The main response payload from the acknowledgeMessage operation.",
+      "properties": {
+        "settled": {
+          "type": "boolean",
+          "description": "Whether the inbound message was settled with the broker."
+        },
+        "outcome": {
+          "type": "string",
+          "description": "The settlement outcome applied to the message (always ACK for this operation)."
+        },
+        "ackMessageId": {
+          "type": "integer",
+          "description": "The broker-assigned ack message id of the settled message. Present only when the message carried a non-zero ack message id."
+        },
+        "settledAt": {
+          "type": "integer",
+          "description": "Epoch timestamp in milliseconds when the message was settled."
+        }
+      },
+      "required": [
+        "settled",
+        "outcome",
+        "settledAt"
+      ],
+      "additionalProperties": false
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Metadata about the acknowledgeMessage operation.",
+      "properties": {
+        "settled": {
+          "type": "boolean",
+          "description": "Whether the inbound message was settled with the broker."
+        },
+        "outcome": {
+          "type": "string",
+          "description": "The settlement outcome applied to the message (always ACK for this operation)."
+        }
+      },
+      "required": [
+        "settled",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "headers": {
+      "type": "object",
+      "description": "Transport headers associated with the response."
+    }
+  },
+  "required": [
+    "payload",
+    "attributes",
+    "headers"
+  ],
+  "additionalProperties": false
+}

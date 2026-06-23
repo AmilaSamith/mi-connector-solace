@@ -18,12 +18,9 @@
 
 package org.wso2.integration.connector.operation;
 
-import com.solacesystems.jcsmp.BytesMessage;
 import com.solacesystems.jcsmp.BytesXMLMessage;
 import com.solacesystems.jcsmp.JCSMPException;
 import com.solacesystems.jcsmp.JCSMPRequestTimeoutException;
-import com.solacesystems.jcsmp.TextMessage;
-import com.solacesystems.jcsmp.XMLContentMessage;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -113,7 +110,8 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
 
             String timeoutStr = (String) ConnectorUtils.lookupTemplateParamater(messageContext,
                     SolaceConstants.REQUEST_TIMEOUT);
-            long timeout = StringUtils.isNotEmpty(timeoutStr) ? Long.parseLong(timeoutStr) : DEFAULT_TIMEOUT_MS;
+            long timeout = SolaceUtils.parseLongOrDefault(timeoutStr, DEFAULT_TIMEOUT_MS,
+                    SolaceConstants.REQUEST_TIMEOUT);
 
             // Get message payload and detect its content type for downstream subscribers
             String[] payloadAndType = SolaceUtils.extractPayloadAndContentType(messageContext);
@@ -141,10 +139,10 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
             }
 
             // Extract raw payload bytes from response
-            byte[] responseBytes = extractRawPayload(response);
+            byte[] responseBytes = SolaceUtils.extractRawPayload(response);
             String contentType = response.getHTTPContentType();
             if (contentType == null || contentType.isEmpty()) {
-                contentType = inferContentType(response);
+                contentType = SolaceUtils.inferContentType(response);
             }
 
             // Legacy solace.* context properties — kept for callers that read them directly.
@@ -191,7 +189,7 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
             }
 
             String body = new String(responseBytes, StandardCharsets.UTF_8);
-            String payloadJson = looksLikeJson(body) ? body : JSONObject.quote(body);
+            String payloadJson = SolaceUtils.looksLikeJson(body) ? body : JSONObject.quote(body);
 
             handleConnectorResponse(messageContext, responseVariable, overwriteBody,
                     payloadJson, null, attributes);
@@ -211,43 +209,6 @@ public class SolaceSendRequest extends AbstractConnectorOperation {
         }
     }
 
-    private boolean looksLikeJson(String s) {
-        if (s == null || s.isEmpty()) return false;
-        String t = s.trim();
-        return t.startsWith("{") || t.startsWith("[");
-    }
-
-    private byte[] extractRawPayload(BytesXMLMessage message) {
-        if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            return text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof XMLContentMessage) {
-            String xml = ((XMLContentMessage) message).getXMLContent();
-            return xml != null ? xml.getBytes(StandardCharsets.UTF_8) : new byte[0];
-        } else if (message instanceof BytesMessage) {
-            byte[] data = ((BytesMessage) message).getData();
-            return data != null ? data : new byte[0];
-        }
-        // Fallback: binary attachment
-        byte[] data = message.getBytes();
-        return data != null ? data : new byte[0];
-    }
-
-    private String inferContentType(BytesXMLMessage message) {
-        if (message instanceof XMLContentMessage) {
-            return "application/xml";
-        } else if (message instanceof TextMessage) {
-            String text = ((TextMessage) message).getText();
-            if (text != null) {
-                String trimmed = text.trim();
-                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-                    return "application/json";
-                } else if (trimmed.startsWith("<")) {
-                    return "application/xml";
-                }
-            }
-            return "text/plain";
-        }
-        return "application/octet-stream";
-    }
+    // Payload extraction / content-type inference moved to SolaceUtils (shared with the
+    // poll, browse, and requestCachedMessages operations).
 }
